@@ -6,13 +6,19 @@ Created on Fri Mar 24 14:10:18 2017
 """ 
 from geopy.distance import vincenty, VincentyDistance
 from geopy.distance import Point as gpt
-from shapely.geometry import Polygon, MultiPoint
+from shapely.geometry import Polygon, MultiPoint, MultiLineString, LinearRing, LineString, MultiPolygon
 from shapely.geometry import Point as spt
 from matplotlib import pyplot as plt
 import random
 import pandas as pd
 
 class GPoint:
+    """
+    A GPoint is a Geographical point and a Geometric one
+    param lat: latitude in degrees [90, -90]
+    param long: longtitude in degrees [0, 360]
+    param alt: altitude in meters
+    """
     def __init__(self, lat, long, alt = 0):
         self.geopyPoint = gpt(lat, long, alt)
         self.shapelyPoint = spt(long, lat, alt)
@@ -29,7 +35,7 @@ class GPoint:
         else:
             return vincenty(self.geopyPoint,other.geopyPoint).meters
         
-    def next_GPoint(self, bearing, distance):
+    def travel(self, bearing, distance):
         '''returns the destination of a travel from self for <distance> meters in <bearing> direction
         param bearing in deg
         param distance in meters'''
@@ -39,17 +45,96 @@ class GPoint:
     def noisy(self, sigma):
         bearingNoise = random.uniform(0, 360)
         disanceNoise = random.gauss(0, sigma)
-        return self.next_GPoint(bearingNoise, disanceNoise)
+        return self.travel(bearingNoise, disanceNoise)
     
-    def within(self, poly):
-        return self.shapelyPoint.within(poly)
+    def within(self, obj):
+        if type(obj) == Polygon:
+            return self.shapelyPoint.within(obj)
+        if type(obj) == Building:
+            return self.within(obj.getPolygon())
+        else:
+            raise TypeError("expecting Polygon or Building but got {}".format(type(obj)))
     
     def toFix(self, time):
         return Fix(self.geopyPoint[0], self.geopyPoint[1], self.geopyPoint[2], time)
-   
-
-class Fix(GPoint):
     
+    def getCoords(self):
+        return (self.shapelyPoint.x, self.shapelyPoint.y)
+   
+class Building:
+    def __init__(self, outerWallsLinearRing, innerWallsMultiLineString = None, holesMultiPolygon = None):
+        """
+        param outerWallsRing: a LinearRing class object for outer walls. include points for walls connection.
+        param innerWallsList: a list of LineString class objects for inner walls of the building.
+        """
+        self.outerWallsLinearRing = outerWallsLinearRing
+        self.innerWallsMultiLineString = innerWallsMultiLineString
+        self.holesMultiPolygon = holesMultiPolygon
+    
+    def getPolygon(self):
+        outerWallsCoords = self.outerWallsLinearRing.coords
+        polygon = Polygon(outerWallsCoords)
+        if not self.holesMultiPolygon == None:
+            polygon = polygon.difference(self.holesMultiPolygon)
+        return polygon
+    
+    def containsPoint(self, gpoint):
+        polygon = self.getPolygon()
+        return gpoint.within(polygon)
+        
+    def legalTravel(self, line):
+        illegal = line.intersects(self.outerWallsLinearRing) or any(line.intersects(geo) for geo in [self.innerWallsMultiLineString, self.holesMultiPolygon] if geo != None)
+        return not illegal
+
+    def buildingBuilder(typenum):
+        if typenum == 1:
+            outerWallsCrds = list()
+            meetingInnerOuter = list()
+            startPoint = GPoint(32.178074, 34.911721)
+            currPoint = GPoint(32.178074, 34.911721) #Start as north westren point
+            outerWallsCrds.append(currPoint.getCoords())
+            for i in range(5):
+                nextPoint = currPoint.travel(90,5)
+                outerWallsCrds.append(nextPoint.getCoords())
+                if not (i == 4):
+                    meetingInnerOuter.append(nextPoint)
+                currPoint = nextPoint
+                
+            nextPoint = currPoint.travel(180, 10)
+            outerWallsCrds.append(nextPoint.getCoords())
+            currPoint = nextPoint
+            
+            nextPoint = currPoint.travel(270, 25)
+            outerWallsCrds.append(nextPoint.getCoords())
+            outerWallsCrds.append(startPoint.getCoords())
+            
+            outerWallsLinRing = LinearRing(outerWallsCrds)
+            
+            innerWallsCrds = list()
+            for i in [0,2]:
+                innerWallsCrds.append(
+                        [meetingInnerOuter[i].getCoords(),
+                         meetingInnerOuter[i].travel(180,8).getCoords(),
+                         meetingInnerOuter[i+1].travel(180,8).getCoords(),
+                         meetingInnerOuter[i+1].getCoords()])
+            innerWallsMultiPolygon = MultiPolygon([Polygon(crds) for crds in innerWallsCrds])
+            
+            return Building(outerWallsLinRing, holesMultiPolygon = innerWallsMultiPolygon)
+
+        else:
+            print("No implementation for typenum = {}".format(typenum))
+            return None
+        
+    def plot(self, axs):
+        polygon = self.getPolygon()#Polygon(self.outerWallsLinearRing)
+        xs, ys = polygon.exterior.xy
+        axs.fill(xs, ys, alpha=0.5, fc='r', ec='none')
+        if self.innerWallsMultiLineString != None:
+            for line in self.innerWallsMultiLineString:
+                x, y = line.xy
+                axs.plot(x, y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round', zorder=2)
+    
+class Fix(GPoint):
     def __init__(self, lat, long, alt = 0, time = 0):
         GPoint.__init__(self, lat, long, alt)
         self.time = time
@@ -117,20 +202,24 @@ class Trajectory:
         newtraj = [p.noisy(dist) for p in self.groundTruth]
         self.traj = newtraj
         self.trajValid = True
-        
-        
+    
+    def plot(self, axs):
+        xs, ys = self.scatterXY()
+        axs.plot(xs, ys, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round', zorder=2)
+
+
 class TrajectoryMaker:
-    def __init__(self, polygon):
-        self.polygon = polygon
+    def __init__(self, building):
+        self.building = building
         self.trajectoryCollection = []
         
     def selectStartingFix(self):
-        bnds = self.polygon.bounds
+        bnds = self.building.getPolygon().bounds
         while True: 
             long = random.uniform(bnds[0], bnds[2]) #easting
             lat = random.uniform(bnds[1],bnds[3]) #northing
             aPnt = Fix(lat,long)
-            if aPnt.within(self.polygon):
+            if aPnt.within(self.building.getPolygon()):
                break
         return aPnt
     
@@ -148,8 +237,9 @@ class TrajectoryMaker:
         currBrng = random.uniform(0,360)
         while t < T:
             while True:
-                nextFix = currFix.next_GPoint(currBrng, velocity * dt).toFix(t+dt)
-                if nextFix.within(self.polygon):
+                nextFix = currFix.travel(currBrng, velocity * dt).toFix(t+dt)
+                if self.building.legalTravel(LineString([currFix.getCoords(), nextFix.getCoords()])):
+                #if nextFix.within(self.building):
                     t += dt
                     aTraj.append(nextFix)
                     currFix = nextFix
@@ -176,8 +266,23 @@ class TrajectoryMaker:
         df.to_csv('Data//' + filename +'.csv')
 
                 
+class TrajectoryCollectionCSVLoader:
+    def __init__(self):
+        '''each element in the collection is of a Trajectory class object'''
+        self.trajectoryCollection = {}
+    
+    def loadTrajectoryCollectionFromCSV(self, filename):
+        data = pd.read_csv('data//' + filename +'.csv' )
+        for index, row in data.iterrows():
+            trajectoryIndex = row['trajIndex']
+            if not trajectoryIndex in self.trajectoryCollection:
+                self.trajectoryCollection[trajectoryIndex] = Trajectory(list())
+            self.trajectoryCollection[trajectoryIndex].append(Fix(row['lat'], row['long'], row['alt'], row['time']))
+
+#        for key, traj in self.trajectoryCollection.items():
+#            print("trajIndex:{}, {}".format(key, traj))
                     
-   
+'''unused'''
 def plotPoly(p):
     x,y = p.exterior.xy
     fig = plt.figure(1, figsize=(5,5), dpi=90)
@@ -187,42 +292,49 @@ def plotPoly(p):
     ax.set_title('Polygon')
 
 
-
-bldng1 = [(32.178028, 34.912227),
-        (32.178022, 34.912530),
-        (32.177977, 34.912527),
-        (32.177972, 34.912886),
-        (32.177927, 34.912889),
-        (32.177929, 34.912444),
-        (32.177976, 34.912443),
-        (32.177985, 34.912226)]
-
-
-ks_p1 = (32.177916, 34.911915)
-ks_p2 = (32.177925, 34.911857)
-d12 = vincenty(ks_p1,ks_p2).meters
-ptk_p1 = (32.101759, 34.850336)
-ks_p3 = VincentyDistance(200/1000).destination(ks_p1, 90)
-
-#pol1 = Polygon(bldng1)
-pol1 = Polygon([(lon,lat) for (lat,lon) in bldng1])
-pol2 = MultiPoint(bldng1).convex_hull    
-
-#plotPoly(pol1)
-#plot(pol2)
-
-tm = TrajectoryMaker(pol1)
-
-xs, ys = pol1.exterior.xy
-fig, axs = plt.subplots()
-axs.fill(xs, ys, alpha=0.5, fc='r', ec='none')
-
-traj = tm.makeGroundTruth(2)
-x,y = traj.scatterXY()
-axs.plot(x,y)
-
-tm.makeDataSet('BarIlan', 20)
+def test1():
+    bldng1 = [(32.178028, 34.912227),
+            (32.178022, 34.912530),
+            (32.177977, 34.912527),
+            (32.177972, 34.912886),
+            (32.177927, 34.912889),
+            (32.177929, 34.912444),
+            (32.177976, 34.912443),
+            (32.177985, 34.912226)]
     
+    
+    ks_p1 = (32.177916, 34.911915)
+    ks_p2 = (32.177925, 34.911857)
+    d12 = vincenty(ks_p1,ks_p2).meters
+    ptk_p1 = (32.101759, 34.850336)
+    ks_p3 = VincentyDistance(200/1000).destination(ks_p1, 90)
+    
+    #pol1 = Polygon(bldng1)
+    pol1 = Polygon([(lon,lat) for (lat,lon) in bldng1])
+    pol2 = MultiPoint(bldng1).convex_hull    
+    
+    #plotPoly(pol1)
+    #plot(pol2)
+    
+    tm = TrajectoryMaker(pol1)
+    
+    fig, axs = plt.subplots()
+    xs, ys = pol1.exterior.xy
+    axs.fill(xs, ys, alpha=0.5, fc='r', ec='none')
+    
+    traj = tm.makeGroundTruth(2)
+    x,y = traj.scatterXY()
+    axs.plot(x,y)
+    
+    tm.makeDataSet('BarIlan', 20)
+
+fig, axs = plt.subplots()  
+bd = Building.buildingBuilder(1)
+tm = TrajectoryMaker(bd)
+t1 = tm.makeGroundTruth(2)
+bd.plot(axs)
+t1.plot(axs)
+tm.makeDataSet('KfarSaba', 20)
 
 
 
