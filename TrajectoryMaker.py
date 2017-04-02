@@ -11,6 +11,8 @@ from shapely.geometry import Point as spt
 from matplotlib import pyplot as plt
 import random
 import pandas as pd
+import copy
+from Convertions import LLHtoECEF
 
 class GPoint:
     """
@@ -24,7 +26,7 @@ class GPoint:
         self.shapelyPoint = spt(long, lat, alt)
         
     def __repr__(self):
-        return "GPoint (lat: {}, long: {}, alt: {}, time: {})".format(self.geopyPoint[0],
+        return "GPoint (lat: {}, long: {}, alt: {})".format(self.geopyPoint[0],
                        self.geopyPoint[1], self.geopyPoint[2])
         
     def distance(self, other):
@@ -60,7 +62,30 @@ class GPoint:
     
     def getCoords(self):
         return (self.shapelyPoint.x, self.shapelyPoint.y)
-   
+
+class GLine:
+    def __init__(self, gpt1, gpt2):
+        self.end1 = gpt1
+        self.end2 = gpt2
+        
+    def __getitem__(self, key):
+        if key == 0:
+            return self.end1
+        elif key == 1:
+            return self.end2
+        else:
+            raise IndexError("GLine has only two indices!")
+            
+    def perpendicularDist(line1, line2):
+        return 0
+    
+    def angularDist(line1, line2):
+        return 0
+    
+    def parallelDist(line1, line2):
+        return 0
+    
+    
 class Building:
     def __init__(self, outerWallsLinearRing, innerWallsMultiLineString = None, holesMultiPolygon = None):
         """
@@ -82,7 +107,8 @@ class Building:
         polygon = self.getPolygon()
         return gpoint.within(polygon)
         
-    def legalTravel(self, line):
+    def legalTravel(self, pt1, pt2):
+        line = LineString([pt1.getCoords(), pt2.getCoords()])
         illegal = line.intersects(self.outerWallsLinearRing) or any(line.intersects(geo) for geo in [self.innerWallsMultiLineString, self.holesMultiPolygon] if geo != None)
         return not illegal
 
@@ -151,11 +177,11 @@ class Fix(GPoint):
             else:
                 raise Exception('Cannot append ' + pts + ' since times are inconsistent!')
         elif type(pts) == Trajectory:
-            if len(pts.groundTruth) == 0:
+            if len(pts.FixList) == 0:
                 return Trajectory([self])
             else:
-                if self.time <= pts.groundTruth[0].time:
-                    return Trajectory([self]+pts.groundTruth)
+                if self.time <= pts.FixList[0].time:
+                    return Trajectory([self]+pts.FixList)
                 else:
                     raise Exception('Cannot append ' + pts + ' since times are inconsistent!')
         else:
@@ -165,28 +191,36 @@ class Fix(GPoint):
             
 class Trajectory:
     def __init__(self, FixList):
-        self.groundTruth = FixList
+        self.FixList = FixList
         self.traj = None
         self.trajValid = False
         
     def __repr__(self):
-        return "aTrajectory with {} points".format(len(self.groundTruth))
+        return "aTrajectory with {} points".format(len(self.FixList))
+    
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            return Trajectory(copy.deepcopy(self.FixList[key])) #returns copy
+        return copy.deepcopy(self.FixList[key])
+    
+    def toLineSegmentList(trajectory):
+        return [GLine(trajectory[i], trajectory[i+1]) for i in range(len(trajectory.FixList)-1)]
     
     def append(self, traj):
         '''appends in place'''
         if type(traj) == Fix:
-            if all(groundTruthPoint.time <= traj.time for groundTruthPoint in self.groundTruth):
-                self.groundTruth += [traj]
+            if all(FixListPoint.time <= traj.time for FixListPoint in self.FixList):
+                self.FixList += [traj]
                 self.trajValid = False
             else:
                 raise Exception('Cannot append pt=' + traj + 'to Trajectory since times are inconsistent!')
                 
         elif type(traj) == Trajectory:
-            if len(self.groundTruth) == 0:
-                self.groundTruth = traj.groundTruth
+            if len(self.FixList) == 0:
+                self.FixList = traj.FixList
             else:
-                if all(groundTruthPoint.time >= self.groundTruth[-1].time for groundTruthPoint in traj.groundTruth):
-                    self.groundTruth += traj.groundTruth
+                if all(FixListPoint.time >= self.FixList[-1].time for FixListPoint in traj.FixList):
+                    self.FixList += traj.FixList
                     self.trajValid = False
                 else:
                     raise Exception('Cannot append trajectory=' + traj + 'to Trajectory since times are inconsistent!')
@@ -194,12 +228,12 @@ class Trajectory:
              raise Exception('Expecting Fix or Trajectory and got {}'.format(type(traj)))
              
     def scatterXY(self):
-        x = [fx.shapelyPoint.x for fx in self.groundTruth]
-        y = [fx.shapelyPoint.y for fx in self.groundTruth]
+        x = [fx.shapelyPoint.x for fx in self.FixList]
+        y = [fx.shapelyPoint.y for fx in self.FixList]
         return (x,y)
 
     def addNoise(self, sigma, dist = 3):
-        newtraj = [p.noisy(dist) for p in self.groundTruth]
+        newtraj = [p.noisy(dist) for p in self.FixList]
         self.traj = newtraj
         self.trajValid = True
     
@@ -223,7 +257,7 @@ class TrajectoryMaker:
                break
         return aPnt
     
-    def makeGroundTruth(self, dt):
+    def makeFixList(self, dt):
         '''returns a trajectory of Fixes inside the TrajectoryMaker's Polygon'''
         #walk 5km/h = 1.389 m/s
         velocity = 1.389
@@ -237,8 +271,9 @@ class TrajectoryMaker:
         currBrng = random.uniform(0,360)
         while t < T:
             while True:
-                nextFix = currFix.travel(currBrng, velocity * dt).toFix(t+dt)
-                if self.building.legalTravel(LineString([currFix.getCoords(), nextFix.getCoords()])):
+                bearingNoise = random.uniform(-25,25)
+                nextFix = currFix.travel(currBrng + bearingNoise, velocity * dt).toFix(t+dt)
+                if self.building.legalTravel(currFix, nextFix):
                 #if nextFix.within(self.building):
                     t += dt
                     aTraj.append(nextFix)
@@ -252,11 +287,11 @@ class TrajectoryMaker:
     def makeDataSet(self, filename, numberOfTrajectories):
         data = []
         for i in range(numberOfTrajectories):
-            self.makeGroundTruth(2)
+            self.makeFixList(2)
         
         for i in range(len(self.trajectoryCollection)):
             traj = self.trajectoryCollection[i]
-            for fix in traj.groundTruth:
+            for fix in traj.FixList:
                 data.append({"trajIndex": i,
                              "time": fix.time,
                              "lat": fix.geopyPoint[0],
@@ -322,7 +357,7 @@ def test1():
     xs, ys = pol1.exterior.xy
     axs.fill(xs, ys, alpha=0.5, fc='r', ec='none')
     
-    traj = tm.makeGroundTruth(2)
+    traj = tm.makeFixList(2)
     x,y = traj.scatterXY()
     axs.plot(x,y)
     
@@ -331,7 +366,7 @@ def test1():
 fig, axs = plt.subplots()  
 bd = Building.buildingBuilder(1)
 tm = TrajectoryMaker(bd)
-t1 = tm.makeGroundTruth(2)
+t1 = tm.makeFixList(2)
 bd.plot(axs)
 t1.plot(axs)
 tm.makeDataSet('KfarSaba', 20)
