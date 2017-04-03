@@ -6,6 +6,7 @@ Created on Fri Mar 24 14:10:18 2017
 """ 
 from geopy.distance import vincenty, VincentyDistance
 from geopy.distance import Point as gpt
+import nvector as nv
 from shapely.geometry import Polygon, MultiPoint, MultiLineString, LinearRing, LineString, MultiPolygon
 from shapely.geometry import Point as spt
 from matplotlib import pyplot as plt
@@ -18,7 +19,7 @@ class GPoint:
     """
     A GPoint is a Geographical point and a Geometric one
     param lat: latitude in degrees [90, -90]
-    param long: longtitude in degrees [0, 360]
+    param long: longitude in degrees [0, 360]
     param alt: altitude in meters
     """
     def __init__(self, lat, long, alt = 0):
@@ -28,7 +29,12 @@ class GPoint:
     def __repr__(self):
         return "GPoint (lat: {}, long: {}, alt: {})".format(self.geopyPoint[0],
                        self.geopyPoint[1], self.geopyPoint[2])
-        
+    def __getitem__(self, key):
+        if key in [0,1,2]:
+            return self.geopyPoint[key]
+        else:
+            raise IndexError("Invalid GPoint coord")
+            
     def distance(self, other):
         '''returns the vincenty distance between the two points in meters
         Doesn't consider elevation'''
@@ -77,12 +83,80 @@ class GLine:
             raise IndexError("GLine has only two indices!")
             
     def perpendicularDist(line1, line2):
-        return 0
+        '''
+        Perpendicular distance function. See Article.
+        In this function L1 is being Li and L2 is Lj, meaning
+        the projection points are on L1.
+        
+        returns value in meters
+        '''
+        
+        # See example in https://pypi.python.org/pypi/nvector
+        frame = nv.FrameE(a=6371e3, f= 0)
+        pointA1 = frame.GeoPoint(line1[0][0], line1[0][1], degrees = True)#TODO: hoping GeoPoint is in lat long alt
+        pointA2 = frame.GeoPoint(line1[1][0], line1[1][1], degrees = True)
+        
+        pointB1 = frame.GeoPoint(line2[0][0], line2[0][1], degrees=True)
+        pointB2 = frame.GeoPoint(line2[1][0], line2[1][1], degrees=True)
+        
+        pathA = nv.GeoPath(pointA1, pointA2)
+        s_xt1 = pathA.cross_track_distance(pointB1, method = 'greatcircle')#.ravel()
+        s_xt2 = pathA.cross_track_distance(pointB2, method = 'greatcircle')#.ravel()
+                
+        d_perpen = (s_xt1**2 + s_xt2**2) / (s_xt1 + s_xt2)
+        return d_perpen
     
     def angularDist(line1, line2):
         return 0
     
     def parallelDist(line1, line2):
+        '''
+        Parallel distance function. See Article.
+        In this function L1 is being Li and L2 is Lj, meaning
+        the projection points are on L1.
+        
+        returns value in meters
+        '''
+        
+        # See example in https://pypi.python.org/pypi/nvector
+        frame = nv.FrameE(name = 'WGS84', a=6371e3, f= 0)
+        
+        pointA1 = frame.GeoPoint(latitude = line1[0][0], longitude = line1[0][1], degrees = True)#TODO: hoping GeoPoint is in lat long alt
+        pointA2 = frame.GeoPoint(latitude = line1[1][0], longitude = line1[1][1], degrees = True)
+        pathA = nv.GeoPath(pointA1, pointA2)
+        
+        pointB1 = frame.GeoPoint(line2[0][0], line2[0][1], degrees=True)
+        pointB2 = frame.GeoPoint(line2[1][0], line2[1][1], degrees=True)
+        
+        #projection points:
+        pointC1 = pathA.closest_point_on_great_circle(pointB1)
+        pointC2 = pathA.closest_point_on_great_circle(pointB2)
+        
+        #scenario like article:
+        if pathA.on_path(pointC1) and pathA.on_path(pointC2):
+            #find out which point is closer to which end:
+            if pointC1.distance_and_azimuth(pointA1)[0] >= pointC2.distance_and_azimuth(pointA1)[0]:
+                pointC1tag = pointC2
+                pointC2tag = pointC1
+            else:
+                pointC1tag = pointC1
+                pointC2tag = pointC2
+            return min(pointC1tag.distance_and_azimuth(pointA1)[0],
+                       pointC2tag.distance_and_azimuth(pointA2)[0])
+        #scenario like notebook
+        else:
+            #case a is closer to c, and b is closer to d:
+            if (pointC1.distance_and_azimuth(pointA1)[0] < pointC2.distance_and_azimuth(pointA1)[0]
+                and pointC2.distance_and_azimuth(pointA2)[0] < pointC1.distance_and_azimuth(pointA2)):
+                #staright on
+                pass
+            elif (pointC1.distance_and_azimuth(pointA1)[0] < pointC2.distance_and_azimuth(pointA1)[0]
+                and pointC2.distance_and_azimuth(pointA2)[0] < pointC1.distance_and_azimuth(pointA2)):
+                #swap
+                pass
+            else: #case a is closer to both c,d than b is:
+                #give b its closer point and a gets what's left
+                pass
         return 0
     
     
@@ -370,6 +444,9 @@ t1 = tm.makeFixList(2)
 bd.plot(axs)
 t1.plot(axs)
 tm.makeDataSet('KfarSaba', 20)
-
-
+#frm = nv.FrameE(name = 'WGS84', a=6371e3, f= 0)
+#pta1 = frm.GeoPoint(32,34, degrees = True)
+#pta2 = frm.GeoPoint(31.999, 34.001, degrees = True)
+#d, b1, b2 = pta1.distance_and_azimuth(pta2, degrees = True)
+#print("dist {}m, bearing1 {}, bearing2 {}".format(d,b1,b2))
 
