@@ -1,7 +1,16 @@
-install:
+Installation Instructions:
+Work with anaconda environment with python 3.6
 
-anaconda with python 3.6
-geopy using pip
-shapely using conda
-overpy using pip
-vectors using pip
+Important packages:
+
+- geopy
+pip install geopy
+
+- shapely
+conda install -c conda-forge shapely=1.5.17
+
+- overpy
+pip install overpy
+
+- nvector
+pip install nvector

@@ -4,7 +4,7 @@ Created on Sun Mar 26 15:33:07 2017
 
 @author: Eyal
 """
-from TrajectoryMaker import Trajectory, TrajectoryCollectionCSVLoader, GLine, GPoint
+from objects import Trajectory, GLine
 from math import log2
 
 class TrajectorySegmenter:
@@ -12,8 +12,12 @@ class TrajectorySegmenter:
         self.trajectoryCollection = trajectoryCollection
         
     def approximateTrajectoryPartitioning(trajectory):
+        ''' 
+        Returns Fix list of Characteristic Points 
+        of the segmented trajectory
+        '''
         CPs = [] #Characteristic Points
-        CPs += trajectory[0] #starting point
+        CPs += [trajectory[0]] #starting point
         trajLen = len(trajectory.FixList)
         startIndex = 0
         length = 1
@@ -21,16 +25,18 @@ class TrajectorySegmenter:
             currIndex = startIndex + length
             costPar = TrajectorySegmenter.MDL_par(trajectory, startIndex, currIndex)
             costNoPar = TrajectorySegmenter.MDL_noPar(trajectory, startIndex, currIndex)
+#            print("currIndex: {}, costPar: {}, costNoPar: {}".format(currIndex, costPar, costNoPar))
             #check if partitioning at the current point makes
             #the MDL cost larger than not partitioning
             if costPar > costNoPar:
                 #partition at previous point
-                CPs += trajectory[currIndex - 1]
+#                print("added to CPs - index:{}, fix:{}".format(currIndex - 1, trajectory[currIndex - 1]))
+                CPs += [trajectory[currIndex - 1]]
                 startIndex = currIndex - 1
                 length = 1
             else:
                 length += 1
-        CPs += trajectory[-1]
+        CPs += [trajectory[trajLen - 1]]
         return CPs
     
     def MDL_par(trajectory, startIndex, currIndex):
@@ -40,14 +46,20 @@ class TrajectorySegmenter:
         characteristic points. (one line end to end)
         '''
         
-        LH = log2(trajectory[startIndex].distance(trajectory[currIndex]))
-        
         endToEndLine = GLine(trajectory[startIndex], trajectory[currIndex])
+        
+        LH = log2(endToEndLine.length())
+        
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
         
-        LDH = sum(log2(GLine.perpendicularDist(endToEndLine, lineSeg)) for lineSeg in lineSegments) \
-            + sum(log2(GLine.angularDist(endToEndLine, lineSeg)) for lineSeg in lineSegments)
-        
+        try:
+            LDH = log2(1 + sum(GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments)) +\
+                log2(1 + sum(GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments))
+        except ValueError:
+            print("startInx= {}, currInx= {}".format(startIndex, currIndex))
+            print("Perpendicular distances", [GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
+            print("Angular distances", [GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
+            raise SystemExit(0)
         return LH + LDH
     
     def MDL_noPar(trajectory, startIndex, currIndex):
@@ -58,7 +70,7 @@ class TrajectorySegmenter:
         (trajectory as is)
         '''
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
-        LH = sum(log2(lineSeg.length()) for lineSeg in lineSegments)
+        LH = log2(1 + sum(lineSeg.length() for lineSeg in lineSegments))
         # LDH = 0 as seen in document
         return LH
 
@@ -69,8 +81,6 @@ class Segment:
 class Cluster:
     def __init__(self, segmentsList):
         self.segments = segmentsList
+        
 
-
-loader = TrajectoryCollectionCSVLoader()
-loader.loadTrajectoryCollectionFromCSV('KfarSaba')
 
