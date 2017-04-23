@@ -8,7 +8,7 @@ from geopy.distance import Point as gpt
 from shapely.geometry import Point as spt
 import copy
 from math import sin, cos, acos
-
+import random
 
 class GPoint:
     """
@@ -22,7 +22,7 @@ class GPoint:
         self.shapelyPoint = spt(long, lat, alt)
         
     def __repr__(self):
-        return "GPoint (lat: {}, long: {}, alt: {})".format(self.geopyPoint[0],
+        return "(GPoint(lat: {}, long: {}, alt: {}))".format(self.geopyPoint[0],
                        self.geopyPoint[1], self.geopyPoint[2])
     def __getitem__(self, key):
         if key in [0,1,2]:
@@ -69,6 +69,9 @@ class GLine:
     def __init__(self, gpt1, gpt2):
         self.end1 = gpt1
         self.end2 = gpt2
+        
+    def __repr__(self):
+        return "(Gline ({},{}))".format(self[0], self[1])
         
     def __getitem__(self, key):
         if key == 0:
@@ -152,7 +155,7 @@ class GLine:
                        abs(_azimuth(pointC, pointA2) - _azimuth(pointC, pointB2)),
                        abs(_azimuth(pointC, pointB2) - _azimuth(pointC, pointA1)))
         
-        return line1.length() * sin(minAngle)
+        return line1.length() * abs(sin(minAngle))
     
     def parallelDist(line1, line2):
         '''
@@ -183,7 +186,21 @@ class GLine:
         return min([_dist(pointA1, pointC1), _dist(pointA1, pointC2),
                      _dist(pointA2, pointC1), _dist(pointA2, pointC2)])
  
-    
+    def distance(gline1, gline2):
+        ''' 
+        returns the my_distance_function distance between gline1 and gline2 
+        '''
+        def longer_then_shorter(gline1, gline2):
+            # use distance of GPoints
+            if gline1[0].distance(gline1[1]) > gline2[0].distance(gline2[1]):
+                return (gline1, gline2)
+            else:
+                return (gline2, gline1)
+        
+        gline_a, gline_b = longer_then_shorter(gline1, gline2)
+        return GLine.perpendicularDist(gline_a, gline_b) +\
+                    GLine.parallelDist(gline_a, gline_b) +\
+                    GLine.angularDist(gline_a, gline_b)
     
 class Fix(GPoint):
     def __init__(self, lat, long, alt = 0, time = 0):

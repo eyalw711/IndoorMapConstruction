@@ -148,7 +148,7 @@ class TrajectoryMaker:
                 
 class TrajectoryCollectionCSVLoader:
     def __init__(self):
-        '''each element in the collection is of a Trajectory class object'''
+        '''each element in the dict is of a Trajectory class object'''
         self.trajectoryCollection = {}
     
     def loadTrajectoryCollectionFromCSV(self, filename):

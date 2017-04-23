@@ -9,8 +9,31 @@ from math import log2
 
 class TrajectorySegmenter:
     def __init__(self, trajectoryCollection):
+        ''' a dictionary with <trajectoryIndex, TrajectoryClassObject> '''
         self.trajectoryCollection = trajectoryCollection
-        
+    
+    def segmentsOfTrajectoryCollection(self):
+        segments = []
+        for traj in self.trajectoryCollection.values():
+            trajCPs = TrajectorySegmenter.approximateTrajectoryPartitioning(traj)
+            segmentsOfTraj = TrajectorySegmenter.getSegmentsFromCPs(trajCPs)
+            segments += segmentsOfTraj
+        return segments
+    
+    def getSegmentsFromCPs(trajCPs):
+        ''' 
+        param trajCPs needs to be a list of GPoints (could be fixes since inheritance)
+        returns a list of GLine objects 
+        '''
+        segments = []
+        for i in range(len(trajCPs) - 1):
+            cpstart = trajCPs[i]
+            cpend = trajCPs[i+1]
+            segment = GLine(cpstart, cpend)
+            segments.append(segment)
+        return segments
+            
+    
     def approximateTrajectoryPartitioning(trajectory):
         ''' 
         Returns Fix list of Characteristic Points 
@@ -69,18 +92,12 @@ class TrajectorySegmenter:
         point between pi and pj , i.e., when preserving the original trajectory.
         (trajectory as is)
         '''
+        
+        #TODO: article says add small constant to cost_NoPar to get better clustering - make experiements
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
         LH = log2(1 + sum(lineSeg.length() for lineSeg in lineSegments))
         # LDH = 0 as seen in document
         return LH
-
-class Segment:
-    def __init__(self, trajectory):
-        self.trajectory = trajectory
-
-class Cluster:
-    def __init__(self, segmentsList):
-        self.segments = segmentsList
         
 
 
