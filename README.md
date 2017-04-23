@@ -4,16 +4,21 @@ Work with anaconda environment with python 3.6
 Important packages:
 
 - geopy  
-pip install geopy
-
-- shapely  
-conda install -c conda-forge shapely=1.5.17
-
-- overpy  
-pip install overpy
+A Geo-Navigation Package  
+To install: `pip install geopy`
 
 - nvector  
-pip install nvector
+A Geo-Navigation Package  
+To install: `pip install nvector`  
+
+- shapely  
+A Geometry Package  
+To install: `conda install -c conda-forge shapely=1.5.17`  
+
+- overpy  
+An Open Street Map Interface Package  
+To install: `pip install overpy`
 
 - networkx  
-pip install networkx
+Graphs Algorithms Package  
+To install: `pip install networkx`
