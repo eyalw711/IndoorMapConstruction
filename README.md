@@ -14,3 +14,6 @@ pip install overpy
 
 - nvector  
 pip install nvector
+
+- networkx  
+pip install networkx
