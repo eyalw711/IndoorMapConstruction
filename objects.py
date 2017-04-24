@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 '''This file contains all the basic classes for geometry, geography and navigation'''
-
+import traceback
 import nvector as nv
 from shapely.geometry import Polygon, MultiPoint, MultiLineString, LinearRing, LineString, MultiPolygon #later will use for polygons unification
 from geopy.distance import vincenty, VincentyDistance
@@ -82,7 +82,102 @@ class GLine:
             raise IndexError("GLine has only two indices!")
     
     def length(self):
+        if self[0][0] == self[1][0] and self[0][1] == self[1][1]:
+            return 0
         return self[0].distance(self[1])
+    
+    def minLatOfLineSeg(self):
+        return min(self[0][0], self[1][0])
+    
+    def maxLatOfLineSeg(self):
+        return max(self[0][0], self[1][0])
+    
+    def minLongOfLineSeg(self):
+        return min(self[0][1], self[1][1])
+    
+    def maxLongOfLineSeg(self):
+        return max(self[0][1], self[1][1])
+    
+    def isEqual(self, other):
+        if self is other:
+            return True
+        
+        me1x, me1y = self[0][0], self[0][1]
+        oe1x, oe1y = other[0][0], other[0][1]
+        
+        me2x, me2y = self[1][0], self[1][1]
+        oe2x, oe2y = other[1][0], other[1][1]
+        
+        #compare both ends both coords
+        if me1x == oe1x and me1y == oe1y and me2x == oe2x and me2y == oe2y: 
+            return True
+        
+        #compare backwards
+        if me1x == oe2x and me1y == oe2y and me2x == oe1x and me2y == oe1y:
+            return True
+        
+            
+    def myDistance(self, other):
+        '''
+        my distance function
+        computes the sum of three lengths:
+        start to start, middle to middle, end to end
+        can argue this is a metric:
+        * positive-definite
+        * symmetric
+        * complies with triangle inequality
+        '''
+        if self.isEqual(other):
+            return 0
+        
+        # See example in https://pypi.python.org/pypi/nvector
+        frame = nv.FrameE(a=6371e3, f= 0)
+        
+        myStart = frame.GeoPoint(self[0][0], self[0][1], degrees = True)
+        myEnd = frame.GeoPoint(self[1][0], self[1][1], degrees = True)
+        
+        otherStart = frame.GeoPoint(other[0][0], other[0][1], degrees = True)
+        otherEnd = frame.GeoPoint(other[1][0], other[1][1], degrees = True)
+        
+        #myMiddle
+        myStartVector = myStart.to_nvector()
+        myEndVector = myEnd.to_nvector()
+        myPath = nv.GeoPath(myStartVector, myEndVector)
+        myMiddle = myPath.interpolate(0.5).to_geo_point()
+        #otherMiddle
+        otherStartVector = otherStart.to_nvector()
+        otherEndVector = otherEnd.to_nvector()
+        otherPath = nv.GeoPath(otherStartVector, otherEndVector)
+        otherMiddle = otherPath.interpolate(0.5).to_geo_point()
+        
+        startToStartPath = nv.GeoPath(myStart, otherStart)
+        endToEndPath = nv.GeoPath(myEnd, otherEnd)
+        
+        try:
+            intersectingPointObject = startToStartPath.intersect(endToEndPath) #.to_geo_point()
+            
+            if startToStartPath.on_path(intersectingPointObject) or endToEndPath.on_path(intersectingPointObject):
+                # chosen points incorrectly for start, end
+                otherStart, otherEnd = otherEnd, otherStart
+                startToStartPath = nv.GeoPath(myStart, otherStart)
+                endToEndPath = nv.GeoPath(myEnd, otherEnd)
+        except RuntimeWarning:
+            print("startToStart (x1,y1) = ({},{}) (x2,y2) = ({},{})".format(startToStartPath.positionA.latitude,
+                  startToStartPath.positionA.longitude, startToStartPath.positionB.latitude,
+                  startToStartPath.positionB.longitude))
+            print("endToEndPath (x1,y1) = ({},{}) (x2,y2) = ({},{})".format(endToEndPath.positionA.latitude,
+                  endToEndPath.positionA.longitude, endToEndPath.positionB.latitude,
+                  endToEndPath.positionB.longitude))
+            traceback.print_exc()
+        
+        def _dist(p1, p2): # distance between nvector GeoPoints
+            return p1.distance_and_azimuth(p2)[0]
+        
+        return _dist(myStart, otherStart) +\
+                _dist(myMiddle, otherMiddle) +\
+                _dist(myEnd, otherEnd)
+    
+        
         
     def perpendicularDist(line1, line2):
         '''
@@ -92,11 +187,12 @@ class GLine:
         
         returns value in meters
         '''
+        raise Exception("Don't use anymore please")
         eps = 1e-2
         
         # See example in https://pypi.python.org/pypi/nvector
         frame = nv.FrameE(a=6371e3, f= 0)
-        pointA1 = frame.GeoPoint(line1[0][0], line1[0][1], degrees = True)#TODO: hoping GeoPoint is in lat long alt
+        pointA1 = frame.GeoPoint(line1[0][0], line1[0][1], degrees = True)
         pointA2 = frame.GeoPoint(line1[1][0], line1[1][1], degrees = True)
         
         pointB1 = frame.GeoPoint(line2[0][0], line2[0][1], degrees=True)
@@ -113,6 +209,7 @@ class GLine:
             return d_perpen
     
     def angularDist(line1, line2):
+        raise Exception("Don't use anymore please")
         frame = nv.FrameE(name='WGS84')#a=6371e3, f= 0)
         pointA1 = frame.GeoPoint(line1[0][0], line1[0][1], degrees = True)#TODO: hoping GeoPoint is in lat long alt
         pointA2 = frame.GeoPoint(line1[1][0], line1[1][1], degrees = True)
@@ -166,6 +263,7 @@ class GLine:
         returns value in meters
         '''
         # See example in https://pypi.python.org/pypi/nvector
+        raise Exception("Don't use anymore please")
         frame = nv.FrameE(name = 'WGS84', a=6371e3, f= 0)
         
         pointA1 = frame.GeoPoint(latitude = line1[0][0], longitude = line1[0][1], degrees = True)#TODO: hoping GeoPoint is in lat long alt
@@ -190,6 +288,7 @@ class GLine:
         ''' 
         returns the my_distance_function distance between gline1 and gline2 
         '''
+        raise Exception("Don't use! switch to myDistance function")
         def longer_then_shorter(gline1, gline2):
             # use distance of GPoints
             if gline1[0].distance(gline1[1]) > gline2[0].distance(gline2[1]):
@@ -201,6 +300,19 @@ class GLine:
         return GLine.perpendicularDist(gline_a, gline_b) +\
                     GLine.parallelDist(gline_a, gline_b) +\
                     GLine.angularDist(gline_a, gline_b)
+ 
+
+class Segment(GLine):
+    def __init__(self, gpt1, gpt2, stat = 0, trajIndex = 0, clusterId = -1):
+        GLine.__init__(self, gpt1, gpt2)
+        
+        ''' status values:
+            0: unclassified
+            1: signal
+            2: noise
+        '''
+        self.status = stat    
+        self.trajIndex = trajIndex
     
 class Fix(GPoint):
     def __init__(self, lat, long, alt = 0, time = 0):

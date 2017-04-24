@@ -158,14 +158,14 @@ class TrajectoryCollectionCSVLoader:
             if not trajectoryIndex in self.trajectoryCollection:
                 self.trajectoryCollection[trajectoryIndex] = Trajectory(list())
             self.trajectoryCollection[trajectoryIndex].append(Fix(row['lat'], row['long'], row['alt'], row['time']))
-
+        return self.trajectoryCollection
                     
 '''unused'''
-def plotPoly(p):
+def plotPoly(p, plotColor = '#6699cc'):
     x,y = p.exterior.xy
     fig = plt.figure(1, figsize=(5,5), dpi=90)
     ax = fig.add_subplot(111)
-    ax.plot(x, y, color='#6699cc', alpha=0.7,
+    ax.plot(x, y, color = plotColor, alpha=0.7,
     linewidth=3, solid_capstyle='round', zorder=2)
     ax.set_title('Polygon')
 

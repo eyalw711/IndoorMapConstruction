@@ -5,50 +5,166 @@ Created on Sun Apr 23 08:45:07 2017
 @author: Eyal
 """
 
-from objects import GLine
-from networkx import DiGraph, shortest_path
+# for geometry and plotting
+from shapely.geometry import MultiPoint, GeometryCollection, LineString
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+from math import cos
+
+# for clustering
+from objects import Segment #GLine
+from networkx import DiGraph, shortest_path, descendants
 from networkx import exception as nxe
 import itertools
 
 class SegmentsClusterer:
     
-    def __init__(self, GLineList, eps, MinLns):
-        self.segmentsList = [segment(gline[0], gline[1]) for gline in GLineList]
+    def __init__(self, segments_list_of_trajectory_collection, eps, MinLns):
+        self.segmentsList = segments_list_of_trajectory_collection
         self.eps = eps
         self.MinLns = MinLns
-        self.directReachablityGraph = self.computeDirectReachabilityGraph()
+        self.segmentsMatrix = None
+        self.directReachablityGraph = None
+#        print("SegmentsClusterer Init: building graph...")
+#        self.directReachablityGraph = self.computeDirectReachabilityGraph()
     
+    def initActions(self):
+        print("InitActions of SegmentsClusterer:")
+        print("New instance of SegmentsMatrix...")
+        self.segmentsMatrix = SegmentsMatrix(self.segmentsList, self.eps)
+        print("Starting Matrix' projector...")
+        self.segmentsMatrix.startMyProjector()
+        print("Constructing Matrix...")
+        self.segmentsMatrix.constructMatrix()
+        print("Building the graph...")
+        self.directReachablityGraph = self.computeDirectReachabilityGraph()
+        print("SegmentsClusterer initialization is complete!")
+        
     def computeDirectReachabilityGraph(self):
         '''
         an edge in the graph v1->v2 tells us that v2 is dirReachable from v1
+        an edge in this graph connects from a core lineSeg to a dirReach node
         '''
         dig = DiGraph() #Directed Graph
         dig.add_nodes_from(self.segmentsList)
-        for prod in itertools.product(dig.nodes(), dig.nodes()):
-            if prod[0] is prod[1]:
+        i = 0
+        for anode in dig.nodes(): #TODO: might be sped up with thread workers?
+            print("computeDirectReachabilityGraph: calculating edges of node #{}".format(i))
+            i += 1
+            a_epsN = self.eps_neighborhood_of_seg(anode)
+            if len(a_epsN) < self.MinLns: # anode is not a core segment
+                anode.status = 2 # noise
                 continue
-            if self.isDirectlyDensityReachable(prod[0], prod[1]):
-                dig.add_edge(prod[1], prod[2])
+            
+            anode.status = 1 # signal(core)
+            for bnode in a_epsN:
+                if anode is bnode:
+                    continue
+                dig.add_edge(anode , bnode)
         return dig
+    
+    
+    def LineSegmentClustering(self):
+        '''
+        Algorithm Line Segment Clustering
+        works after the computeDirectReachabilityGraph was called
+        returns a dictionary of <cid, cluster>
+        '''
+        clusters = {}
+        cid = 0
+        possibleNodesList = list(self.directReachablityGraph.nodes())
         
+        while len(possibleNodesList) > 0:
+            node = possibleNodesList[0]
+            possibleNodesList = possibleNodesList[1:]
+            if node.status == 1:
+                clusters[cid] = list(descendants(self.directReachablityGraph, node))
+                print("LineSegmentClustering: added cluster id {}".format(cid))
+                # remove nodes from possibility:
+                newPossibleNodesList = [node for node in possibleNodesList if not node in clusters[cid]]
+                possibleNodesList = newPossibleNodesList
+                cid += 1
+        # todo: remove clusters with no variaty of trajectories
+        return clusters
+#        
+#        for node in possibleNodesList:
+#            raise Exception("LineSegmentClustering: Written very bad! don't use!")
+#            if node.status == 1:
+#                # a noise node can appear in multiple clusters
+#                clusters[cid] = list(descendants(self.directReachablityGraph, node))
+#                if len(clusters[cid]) > 0:
+#                    print("node with desc")
+#                # I argue that a core segment can be a root of a cluster
+#                # i.e. there is no better core in this cluster (two adjacent cores are both reachable
+#                # from one another)
+#                newPossibleNodesList = [node for node in possibleNodesList if not node in clusters[cid]]
+#                possibleNodesList = newPossibleNodesList
+#                cid += 1
+        
+#        # Remove clusters with too few trajectories
+#        for cIndex, cluster in list(clusters.items()):
+#            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
+#            if len(trajIndexesSet) < self.MinLns:
+#                del clusters[cIndex]
+        
+    
     def eps_neighborhood_of_seg(self, Li):
         '''
         Traclus article Definition 4
         '''
-        return [Lj for Lj in self.segmentsList if segment.distance(Li,Lj) < self.eps]
+        matrixIndex = self.segmentsMatrix.segToMatrixInx(Li)
+        segmentsFrom3x3List = self.segmentsMatrix.getSegmentsFrom3x3(matrixIndex)
+        return [Lj for Lj in segmentsFrom3x3List if Li.myDistance(Lj) < self.eps] # used Gline's myDistance
+#        raise Exception("don't use like this! where is your matrix?")
+     
+
+
+    def plotClusters(axs, clusterList):        
+        colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
+        for cluster in clusterList:
+            ccolor = next(colors)
+            for seg in cluster:
+                xs = [seg[0].shapelyPoint.x, seg[1].shapelyPoint.x]
+                ys = [seg[0].shapelyPoint.y, seg[1].shapelyPoint.y]
+                axs.plot(xs, ys, color = ccolor, alpha=0.7, linestyle = '--')
+            
+            # make convex hull:
+            hull = MultiPoint([seg[0].shapelyPoint for seg in cluster] + [seg[1].shapelyPoint for seg in cluster]).convex_hull
+            if type(hull) == GeometryCollection or type(hull) == LineString:
+                continue
+            else:
+                xs, ys = hull.exterior.xy
+                axs.plot(xs, ys, color = ccolor, linewidth = 5)
+            
+#            # make convex hulls:
+#            shapes = [MultiPoint([seg[0].shapelyPoint for seg in cluster] + [seg[1].shapelyPoint for seg in cluster]) for cluster in clusterList]
+#            hulls = [mpts.convex_hull for mpts in shapes]
+#            
+#        colors = iter(cm.rainbow(np.linspace(0, 1, len(hulls))))
+#        for hull in hulls:
+#            color = next(colors)
+#            xs, ys = hull.exterior.xy
+#            axs.plot(xs, ys, color)
+#        
         
-    def isCoreLineSegments(self, Li):
+    
+    
+    # UNUSED METHODS #
+    def isCoreLineSegment(self, Li):
         '''
         Traclus article Definition 5
         '''
-        return len(self.eps_neighborhood_of_seg(Li, self.eps)) > self.MinLns
+        raise Exception("Don't use this highly inefficient function")
+        return len(self.eps_neighborhood_of_seg(Li, self.eps)) >= self.MinLns
     
     def isDirectlyDensityReachable(self, line, fromLine):
         '''
         Traclus article Definition 6
         '''
+        raise Exception("Don't use this highly inefficient function")
         if line in self.eps_neighborhood_of_seg(fromLine, self.eps):
-            if len(self.eps_neighborhood_of_seg(fromLine, self.eps)) > self.MinLns:
+            if len(self.eps_neighborhood_of_seg(fromLine, self.eps)) >= self.MinLns:
                 return True
         return False
      
@@ -83,25 +199,112 @@ class SegmentsClusterer:
         if len(clusterListOfSegments) == 0:
             return False
         
-        cond1 = all(self.isDensityConneced(prod[0], prod[1]) for prod in itertools.product(clusterListOfSegments, clusterListOfSegments))
-        if not cond1:
+        connectivity = all(self.isDensityConneced(prod[0], prod[1]) for prod in itertools.product(clusterListOfSegments, clusterListOfSegments))
+        if not connectivity:
             return False
         
-        cond2 =  all(prod[1] in clusterListOfSegments for
+        Maximality =  all(prod[1] in clusterListOfSegments for
             prod in itertools.product(self.directReachablityGraph.nodes(), self.directReachablityGraph.nodes())
             if prod[0] in clusterListOfSegments and self.isDensityReachable(prod[1], prod[0]))
-        return cond2
+        return Maximality
        
     
-    
-class segment(GLine):
-    def __init__(self, gpt1, gpt2, stat = 0):
-        GLine.__init__(self, gpt1, gpt2)
-        
-        ''' status values:
-            0: unclassified
-            1: signal
-            2: noise
+class SegmentsMatrix:
+    def __init__(self, segments_list_of_trajectory_collection, eps):
+        self.segmentList = segments_list_of_trajectory_collection
         '''
-        self.status = stat    
+        <spatialIndex, Segment Class Object List> dictionary
+        where spatialIndex is a tuple of (i, j) - 
+        the index in the matrix of the slot which starts at
+        (originX + i * eps, originY + j * eps)
+        
+            j
+            
+            |
+            |
+            |
+            |___________ i
+        originXY    
+        '''
+        self.spInxMap = {}
+        self.projector = None
+        self.eps = eps
+        
+    def startMyProjector(self):
+        self.projector = EquirectangularProjector(self.segmentList)
     
+    
+    def segToMatrixInx(self, seg):
+        '''
+        returns the index of the matrix the segment belongs to
+        '''
+        seg_end1_xy = self.projector.latLongToXY(seg[0][0], seg[0][1])
+        seg_end2_xy = self.projector.latLongToXY(seg[1][0], seg[1][1])
+        xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0
+        ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0
+        segMXY = (xm, ym)
+        segMatrixIndex = self.segMXYToMatrixInx(segMXY)
+        return segMatrixIndex
+    
+    def segMXYToMatrixInx(self, segMXY):
+        '''
+        seg inx must be greater than originXY in both dimensions
+        '''
+        mx, my = segMXY
+        i = int((mx - self.projector.originXY[0]) / self.eps)
+        j = int((my - self.projector.originXY[1]) / self.eps)
+        return (i,j)
+        
+    def constructMatrix(self):
+        myMap = {}
+        for seg in self.segmentList:
+            segMatrixIndex = self.segToMatrixInx(seg)
+            if segMatrixIndex in myMap:
+                myMap[segMatrixIndex].append(seg)
+            else:
+                myMap[segMatrixIndex] = [seg]
+                
+        self.spInxMap = myMap
+        
+    def getSegmentsFrom3x3(self, spatialIndex):
+        i,j = spatialIndex
+        if i < 0 or j < 0:
+            raise ValueError("Indices are not negative!")
+        
+        result = []
+        if spatialIndex in self.spInxMap:
+            for ii in range(i-1, i+2):
+                for jj in range(j-1, j+2):
+                    if ii < 0 or jj < 0:
+                        continue
+                    if (ii,jj) in self.spInxMap:
+                        result += self.spInxMap[(ii,jj)]
+        return result
+    
+
+class EquirectangularProjector:
+    '''
+    simple class for projections of small areas on earth to x,y
+    '''
+    radius = 6371e3
+    def __init__(self, segments_list_of_trajectory_collection):
+        
+        minLat = min(seg.minLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
+        maxLat = max(seg.maxLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
+        
+        minLong = min(seg.minLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
+        maxLong = max(seg.maxLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
+
+        self.meanLat = (minLat + maxLat) / 2.0
+        self.meanLong = (minLong + maxLong) / 2.0
+        self.cosMeanLat = cos(self.meanLat)
+        self.originXY = self.latLongToXY(minLat, minLong)
+        
+    def latLongToXY(self, lat, long):
+        '''
+        x = R * long * cos(meanLat)
+        y = R * lat
+        '''
+        return (EquirectangularProjector.radius * long * self.cosMeanLat, EquirectangularProjector.radius * lat)
+        
+        

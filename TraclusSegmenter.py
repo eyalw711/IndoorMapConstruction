@@ -4,7 +4,7 @@ Created on Sun Mar 26 15:33:07 2017
 
 @author: Eyal
 """
-from objects import Trajectory, GLine
+from objects import Trajectory, GLine, Segment
 from math import log2
 
 class TrajectorySegmenter:
@@ -12,24 +12,31 @@ class TrajectorySegmenter:
         ''' a dictionary with <trajectoryIndex, TrajectoryClassObject> '''
         self.trajectoryCollection = trajectoryCollection
     
-    def segmentsOfTrajectoryCollection(self):
+    def segmentsOfTrajectoryCollection(self, max_num_of_trajectories):
+        ''' returns a list of Segment class objects '''
         segments = []
-        for traj in self.trajectoryCollection.values():
-            trajCPs = TrajectorySegmenter.approximateTrajectoryPartitioning(traj)
-            segmentsOfTraj = TrajectorySegmenter.getSegmentsFromCPs(trajCPs)
+        i = 0
+        for trajIndex, trajObject in self.trajectoryCollection.items():
+            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
+            if i == max_num_of_trajectories:  #do faster
+                return segments
+            i+=1
+            trajCPsFixList = TrajectorySegmenter.approximateTrajectoryPartitioning(trajObject)
+#            print("partitioned {}/{} and now building segments".format(i, len(self.trajectoryCollection.items())))
+            segmentsOfTraj = TrajectorySegmenter.getSegmentsFromCPs(trajIndex, trajCPsFixList)
             segments += segmentsOfTraj
         return segments
     
-    def getSegmentsFromCPs(trajCPs):
+    def getSegmentsFromCPs(trajIndex, trajCPsFixList):
         ''' 
         param trajCPs needs to be a list of GPoints (could be fixes since inheritance)
-        returns a list of GLine objects 
+        returns a list of Segment objects 
         '''
         segments = []
-        for i in range(len(trajCPs) - 1):
-            cpstart = trajCPs[i]
-            cpend = trajCPs[i+1]
-            segment = GLine(cpstart, cpend)
+        for i in range(len(trajCPsFixList) - 1):
+            cpstart = trajCPsFixList[i]
+            cpend = trajCPsFixList[i+1]
+            segment = Segment(cpstart, cpend, trajIndex)
             segments.append(segment)
         return segments
             
@@ -44,9 +51,12 @@ class TrajectorySegmenter:
         trajLen = len(trajectory.FixList)
         startIndex = 0
         length = 1
+        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
         while startIndex + length <= trajLen - 1:
             currIndex = startIndex + length
+#            print("approximateTrajectoryPartitioning: going into MDL_par - {}".format(currIndex))
             costPar = TrajectorySegmenter.MDL_par(trajectory, startIndex, currIndex)
+#            print("approximateTrajectoryPartitioning: going into MDL_noPar - {}".format(currIndex))
             costNoPar = TrajectorySegmenter.MDL_noPar(trajectory, startIndex, currIndex)
 #            print("currIndex: {}, costPar: {}, costNoPar: {}".format(currIndex, costPar, costNoPar))
             #check if partitioning at the current point makes
@@ -71,17 +81,21 @@ class TrajectorySegmenter:
         
         endToEndLine = GLine(trajectory[startIndex], trajectory[currIndex])
         
-        LH = log2(endToEndLine.length())
+        LH = log2(1 + endToEndLine.length())
         
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
         
+        #TODO: changed here to new distance metric
         try:
-            LDH = log2(1 + sum(GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments)) +\
-                log2(1 + sum(GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments))
+            LDH = log2(1 + sum(endToEndLine.myDistance(lineSeg) for lineSeg in lineSegments))
+#        try:
+#            LDH = log2(1 + sum(GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments)) +\
+#                log2(1 + sum(GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments))
         except ValueError:
             print("startInx= {}, currInx= {}".format(startIndex, currIndex))
-            print("Perpendicular distances", [GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
-            print("Angular distances", [GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
+            print("myDistances", [endToEndLine.myDistance(lineSeg) for lineSeg in lineSegments])
+#            print("Perpendicular distances", [GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
+#            print("Angular distances", [GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
             raise SystemExit(0)
         return LH + LDH
     
@@ -96,6 +110,7 @@ class TrajectorySegmenter:
         #TODO: article says add small constant to cost_NoPar to get better clustering - make experiements
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
         LH = log2(1 + sum(lineSeg.length() for lineSeg in lineSegments))
+#        print("MDL_noPar - {}".format(LH))
         # LDH = 0 as seen in document
         return LH
         
