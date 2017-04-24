@@ -1,4 +1,12 @@
-Installation Instructions:  
+# Indoor Map Construction From Crowd-Source  
+This is an final project for a B.Sc degree in Electrical Engineering in Tel-Aviv University.  
+In our project the Map-Constructor will build navigable indoor map objects of the buildings floors  
+given a data-base of pedestrians trajectories.
+
+Our algorithm is based upon a modified and improved [TRACLUS](http://hanj.cs.illinois.edu/pdf/sigmod07_jglee.pdf) segmentation and clustering algorithm,  
+and will include in the near future more functions such as cluster-connectivity algorithm, building entries detection and more.  
+
+### Installation Instructions:  
 Work with anaconda environment with python 3.6
 
 Important packages:
@@ -27,3 +35,8 @@ To install: `pip install overpy`
 Graphs Algorithms Package  
 [Documentation](http://networkx.readthedocs.io/en/networkx-1.11/index.html)  
 To install: `pip install networkx`
+
+- pickle  
+Python Objects Serialization  
+[Documentation](https://docs.python.org/3/library/pickle.html)  
+To install: `pip install pickle`
