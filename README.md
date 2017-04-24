@@ -6,6 +6,11 @@ given a data-base of pedestrians trajectories.
 Our algorithm is based upon a modified and improved [TRACLUS](http://hanj.cs.illinois.edu/pdf/sigmod07_jglee.pdf) segmentation and clustering algorithm,  
 and will include in the near future more functions such as cluster-connectivity algorithm, building entries detection and more.  
 
+### Last Results:  
+Clustering of simulated trajectories in a "W" shaped building:  
+![alt text](https://github.com/eyalw711/IndoorMapConstruction/blob/master/Docs/first_time_clustering_12_trajs.png "Clustering")
+
+
 ### Installation Instructions:  
 Work with anaconda environment with python 3.6
 
