@@ -17,7 +17,7 @@ class TrajectorySegmenter:
         segments = []
         i = 0
         for trajIndex, trajObject in self.trajectoryCollection.items():
-            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
+#            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
             if i == max_num_of_trajectories:  #do faster
                 return segments
             i+=1
@@ -51,7 +51,7 @@ class TrajectorySegmenter:
         trajLen = len(trajectory.FixList)
         startIndex = 0
         length = 1
-        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
+#        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
         while startIndex + length <= trajLen - 1:
             currIndex = startIndex + length
 #            print("approximateTrajectoryPartitioning: going into MDL_par - {}".format(currIndex))

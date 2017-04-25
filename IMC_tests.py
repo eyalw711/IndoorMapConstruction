@@ -65,11 +65,11 @@ def testTrajectoryClustering():
     segmenter = TrajectorySegmenter(trajectoryDict)
     print("{}: TrajectorySegmenter started.".format(time.time() - start))
     print("{}: Starting to segment the trajectory collection...".format(time.time() - start))    
-    segmentsList = segmenter.segmentsOfTrajectoryCollection(12) #list of segment objects (GLine)
+    segmentsList = segmenter.segmentsOfTrajectoryCollection(-1) #list of segment objects (GLine)
     print("{}: Segmentation of trajectory collection done. {} segments extracted.".format(time.time() - start, len(segmentsList)))
     
     print("{}: Starting a SegmentsClusterer. This will build a graph, might be very slow...".format(time.time() - start))
-    clusterer = SegmentsClusterer(segmentsList, 20, 4)
+    clusterer = SegmentsClusterer(segmentsList, 18, 8)
     print("{}: SegmentsClusterer starting initActions...".format(time.time() - start))
     clusterer.initActions()
     with open("SegmentClusterer_15_1.p", "wb") as pickleFile:
@@ -81,8 +81,12 @@ def testTrajectoryClustering():
     print("{}: Clustering process ended.".format(time.time() - start))
     
     print("{}: Plotting the clusters...".format(time.time() - start))
-    fig, axs = plt.subplots()
-    SegmentsClusterer.plotClusters(axs, list(clusters.values()))
+    fig, axs = plt.subplots(2,1)
+    axs[0].set_title("Building")
+    axs[1].set_title("Reconstruction")
+    bd = Building.buildingBuilder(1)
+    bd.plot(axs[0])
+    SegmentsClusterer.plotClusters(axs[1], list(clusters.values()))
     print("{}: Plot ended.".format(time.time() - start))
     print("{}: Test ended.".format(time.time() - start))
     

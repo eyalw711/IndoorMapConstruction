@@ -50,7 +50,7 @@ class SegmentsClusterer:
         dig.add_nodes_from(self.segmentsList)
         i = 0
         for anode in dig.nodes(): #TODO: might be sped up with thread workers?
-            print("computeDirectReachabilityGraph: calculating edges of node #{}".format(i))
+#            print("computeDirectReachabilityGraph: calculating edges of node #{}".format(i))
             i += 1
             a_epsN = self.eps_neighborhood_of_seg(anode)
             if len(a_epsN) < self.MinLns: # anode is not a core segment
@@ -248,7 +248,7 @@ class SegmentsMatrix:
     
     def segMXYToMatrixInx(self, segMXY):
         '''
-        seg inx must be greater than originXY in both dimensions
+        segMXY inx must be greater than originXY in both dimensions
         '''
         mx, my = segMXY
         i = int((mx - self.projector.originXY[0]) / self.eps)
@@ -285,6 +285,7 @@ class SegmentsMatrix:
 class EquirectangularProjector:
     '''
     simple class for projections of small areas on earth to x,y
+    reference: http://stackoverflow.com/a/16271669
     '''
     radius = 6371e3
     def __init__(self, segments_list_of_trajectory_collection):
