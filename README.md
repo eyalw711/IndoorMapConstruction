@@ -3,11 +3,10 @@ This is an final project for a B.Sc degree in Electrical Engineering in Tel-Aviv
 In our project the Map-Constructor will build navigable indoor map objects of the buildings floors  
 given a data-base of pedestrians trajectories.
 
-Our algorithm is based upon a modified and improved [TRACLUS](http://hanj.cs.illinois.edu/pdf/sigmod07_jglee.pdf) segmentation and clustering algorithm,  
-and will include in the near future more functions such as cluster-connectivity algorithm, building entries detection and more.  
+Check the [Wiki](https://github.com/eyalw711/IndoorMapConstruction/wiki) for more details.
 
 ### Last Results:  
-Clustering of simulated trajectories in a "W" shaped building:  
+Clustering of 12 simulated trajectories in a "W" shaped building:  
 ![alt text](https://github.com/eyalw711/IndoorMapConstruction/blob/master/Docs/first_time_clustering_12_trajs.png "Clustering")
 
 
