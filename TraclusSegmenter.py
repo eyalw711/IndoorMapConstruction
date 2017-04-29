@@ -4,7 +4,7 @@ Created on Sun Mar 26 15:33:07 2017
 
 @author: Eyal
 """
-from objects import Trajectory, GLine, Segment
+from IMCObjects import Trajectory, GLine, Segment
 from math import log2
 
 class TrajectorySegmenter:

@@ -7,7 +7,7 @@ from geopy.distance import vincenty, VincentyDistance
 from geopy.distance import Point as gpt
 from shapely.geometry import Point as spt
 import copy
-from math import sin, cos, acos
+import math
 import random
 
 class GPoint:
@@ -30,13 +30,26 @@ class GPoint:
         else:
             raise IndexError("Invalid GPoint coord")
             
+    def getLat(self):
+        return self.geopyPoint[0]
+    
+    def getLong(self):
+        return self.geopyPoint[1]
+    
     def distance(self, other):
         '''returns the vincenty distance between the two points in meters
         Doesn't consider elevation'''
+        
         if other == None:
             return -1
         else:
-            return vincenty(self.geopyPoint,other.geopyPoint).meters
+            frame_E = nv.FrameE(a=6371e3, f=0)
+            positionA = frame_E.GeoPoint(latitude=self.getLat(), longitude=self.getLong(), degrees=False)
+            positionB = frame_E.GeoPoint(latitude=other.getLat(), longitude=other.getLong(), degrees=False)
+            path = nv.GeoPath(positionA, positionB)
+            s_AB2 = path.track_distance(method='greatcircle').ravel()
+            return s_AB2
+#            return vincenty(self.geopyPoint,other.geopyPoint).meters
         
     def travel(self, bearing, distance):
         '''returns the destination of a travel from self for <distance> meters in <bearing> direction
@@ -44,11 +57,20 @@ class GPoint:
         param distance in meters'''
         nextPt = VincentyDistance(distance/1000).destination(self.geopyPoint, bearing)
         return GPoint(nextPt[0], nextPt[1], nextPt[2])
+#        '''returns the destination of a travel from self for <distance> meters in <bearing> direction
+#        param bearing in deg
+#        param distance in meters'''
+#        frame = nv.FrameE(a=6371e3, f=0)
+#        pointA = frame.GeoPoint(latitude=self.getLat(), longitude=self.getLong(), degrees=True)
+#        pointB, _azimuthb = pointA.geo_point(distance=dist, azimuth=bearing, degrees=True)
+#        lat, lon = pointB.latitude_deg, pointB.longitude_deg
+##        nextPt = VincentyDistance(distance/1000).destination(self.geopyPoint, bearing)
+#        return GPoint(lat, lon, self[2])
         
     def noisy(self, sigma):
         bearingNoise = random.uniform(0, 360)
-        disanceNoise = random.gauss(0, sigma)
-        return self.travel(bearingNoise, disanceNoise)
+        distanceNoise = random.gauss(0, sigma)
+        return self.travel(bearingNoise, distanceNoise)
     
     def within(self, obj):
         if type(obj) == Polygon:
@@ -67,6 +89,15 @@ class GPoint:
 class GLine:
     ''' A line with two GPoints at its ends'''
     def __init__(self, gpt1, gpt2):
+        # too early to use self functions:
+        y1,x1 = gpt1.getCoords()
+        y2,x2 = gpt2.getCoords()
+        p1 = nv.GeoPoint(x1, y1)
+        p2 = nv.GeoPoint(x2, y2)
+        az = math.degrees(p1.distance_and_azimuth(p2, degrees = False)[1])
+#        print("GLine ctor: type of az is {}".format(type(az)))
+        if az < 0 or az > 180:
+            gpt1, gpt2 = gpt2, gpt1
         self.end1 = gpt1
         self.end2 = gpt2
         
@@ -115,7 +146,16 @@ class GLine:
         #compare backwards
         if me1x == oe2x and me1y == oe2y and me2x == oe1x and me2y == oe1y:
             return True
-        
+    
+    def azimuth(self):  # azimuth between nvector GeoPoints
+        '''returns azimuth in degrees.  
+        Arbitrary in +-pi'''
+        p1 = nv.GeoPoint(self.end1.getLat(), self.end1.getLong())
+        p2 = nv.GeoPoint(self.end2.getLat(), self.end2.getLong())
+        az = math.degrees(p1.distance_and_azimuth(p2, degrees = False)[1])
+#        if math.isnan(az):
+#            raise ValueError("azimuth is nan for linesegment {}".format(self))
+        return az
             
     def myDistance(self, other):
         '''
@@ -217,7 +257,7 @@ class GLine:
         pointB1 = frame.GeoPoint(line2[0][0], line2[0][1], degrees=True)
         pointB2 = frame.GeoPoint(line2[1][0], line2[1][1], degrees=True)
         
-        def _azimuth(p1, p2):
+        def _azimuth(p1, p2): # azimuth between nvector GeoPoints
             '''returns azimuth in radians'''
             return p1.distance_and_azimuth(p2, degrees = False)[1]
         
@@ -226,8 +266,8 @@ class GLine:
             eps = 1e-5
 #            az1 = radians(az1)
 #            az2 = radians(az2)
-            deltaDist = (cos(az1) - cos(az2))**2 + (sin(az1) - sin(az2))**2
-            angleDiff = acos((2.0 - deltaDist) / 2.0)
+            deltaDist = (math.cos(az1) - math.cos(az2))**2 + (math.sin(az1) - math.sin(az2))**2
+            angleDiff = math.acos((2.0 - deltaDist) / 2.0)
             if (abs(angleDiff) < eps):
                 return True
             else:
@@ -252,7 +292,7 @@ class GLine:
                        abs(_azimuth(pointC, pointA2) - _azimuth(pointC, pointB2)),
                        abs(_azimuth(pointC, pointB2) - _azimuth(pointC, pointA1)))
         
-        return line1.length() * abs(sin(minAngle))
+        return line1.length() * abs(math.sin(minAngle))
     
     def parallelDist(line1, line2):
         '''
@@ -391,9 +431,9 @@ class Trajectory:
         self.traj = newtraj
         self.trajValid = True
     
-    def plot(self, axs, color = '#6699cc', linestyle = ''):
+    def plot(self, axs, color = '#6699cc', linestyle = '', linewidth = 3):
         xs, ys = self.scatterXY()
         if linestyle != '':
-            axs.plot(xs, ys, color, alpha=0.7, linestyle = linestyle, linewidth=3, solid_capstyle='round', zorder=2)
+            axs.plot(xs, ys, color, alpha=0.7, linestyle = linestyle, linewidth=linewidth, solid_capstyle='round', zorder=2)
         else:
-            axs.plot(xs, ys, color, alpha=0.7, linewidth=3, solid_capstyle='round', zorder=2)
+            axs.plot(xs, ys, color, alpha=0.7, linewidth=linewidth, solid_capstyle='round', zorder=2)

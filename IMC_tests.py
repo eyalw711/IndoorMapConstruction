@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys, traceback
 import pickle
-from objects import Trajectory, Segment, GPoint
+from IMCObjects import Trajectory, Segment, GPoint
 from TrajectoryMaker import TrajectoryCollectionCSVLoader, Building, TrajectoryMaker
 from TraclusSegmenter import TrajectorySegmenter
 from TraclusClusterer import SegmentsClusterer
@@ -10,9 +10,8 @@ from shapely.geometry import MultiPoint
 import time
 
 
-
-
 def testTrajectoryMaking():
+    print("testTrajectoryMaking: Run")
     fig, axs = plt.subplots()  
     bd = Building.buildingBuilder(1)
     tm = TrajectoryMaker(bd)
@@ -20,6 +19,7 @@ def testTrajectoryMaking():
     bd.plot(axs)
     t1.plot(axs)
     tm.makeDataSet('KfarSaba', 20)
+    print("testTrajectoryMaking: End")
 
 def testTrajectorySegmentation():
     loader = TrajectoryCollectionCSVLoader()
@@ -53,40 +53,48 @@ def testPlotClusters():
     
     
 
-def testTrajectoryClustering():
+def testTrajectoryClustering(withPickle = False):
     start = time.time()
-    print("{}: This is a long test, please be patient...".format(time.time() - start))
-    loader = TrajectoryCollectionCSVLoader()
-    print("{}: Loading Trajectory collection...".format(time.time() - start))
-    trajectoryDict = loader.loadTrajectoryCollectionFromCSV('KfarSaba')
-    print("{}: Trajectory collection loaded.".format(time.time() - start))
-
-    print("{}: Starting a TrajectorySegmenter...".format(time.time() - start))    
-    segmenter = TrajectorySegmenter(trajectoryDict)
-    print("{}: TrajectorySegmenter started.".format(time.time() - start))
-    print("{}: Starting to segment the trajectory collection...".format(time.time() - start))    
-    segmentsList = segmenter.segmentsOfTrajectoryCollection(-1) #list of segment objects (GLine)
-    print("{}: Segmentation of trajectory collection done. {} segments extracted.".format(time.time() - start, len(segmentsList)))
+    if not withPickle:
+        print("{}: This is a long test, please be patient...".format(time.time() - start))
+        loader = TrajectoryCollectionCSVLoader()
+        print("{}: Loading Trajectory collection...".format(time.time() - start))
+        trajectoryDict = loader.loadTrajectoryCollectionFromCSV('KfarSaba')
+        print("{}: Trajectory collection loaded.".format(time.time() - start))
     
-    print("{}: Starting a SegmentsClusterer. This will build a graph, might be very slow...".format(time.time() - start))
-    clusterer = SegmentsClusterer(segmentsList, 18, 8)
-    print("{}: SegmentsClusterer starting initActions...".format(time.time() - start))
-    clusterer.initActions()
-    with open("SegmentClusterer_15_1.p", "wb") as pickleFile:
-        pickle.dump(clusterer, pickleFile)
-    print("Saved clusterer as a pickle file, I did a lot of work to get it!")
+        print("{}: Starting a TrajectorySegmenter...".format(time.time() - start))    
+        segmenter = TrajectorySegmenter(trajectoryDict)
+        print("{}: TrajectorySegmenter started.".format(time.time() - start))
+        print("{}: Starting to segment the trajectory collection...".format(time.time() - start))    
+        segmentsList = segmenter.segmentsOfTrajectoryCollection(-1) #list of segment objects (GLine)
+        print("{}: Segmentation of trajectory collection done. {} segments extracted.".format(time.time() - start, len(segmentsList)))
+        
+        print("{}: Starting a SegmentsClusterer. This will build a graph, might be very slow...".format(time.time() - start))
+        clusterer = SegmentsClusterer(segmentsList, 12, 3)
+        print("{}: SegmentsClusterer starting initActions...".format(time.time() - start))
+        clusterer.initActions()
+        with open("SegmentClusterer_15_1.p", "wb") as pickleFile:
+            pickle.dump(clusterer, pickleFile)
+        print("Saved clusterer as a pickle file, I did a lot of work to get it!")
+    else:
+        with open("SegmentClusterer_15_1.p", "rb") as pickleFile:
+            clusterer = pickle.load(pickleFile)
+    
+    
     print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachablityGraph.nodes()),
           len(clusterer.directReachablityGraph.edges())))
     clusters = clusterer.LineSegmentClustering()
     print("{}: Clustering process ended.".format(time.time() - start))
     
     print("{}: Plotting the clusters...".format(time.time() - start))
-    fig, axs = plt.subplots(2,1)
-    axs[0].set_title("Building")
-    axs[1].set_title("Reconstruction")
-    bd = Building.buildingBuilder(1)
-    bd.plot(axs[0])
-    SegmentsClusterer.plotClusters(axs[1], list(clusters.values()))
+#    fig, axs = plt.subplots(2,1)
+    fig, axs = plt.subplots()
+#    axs[0].set_title("Building")
+#    axs[1].set_title("Reconstruction")
+#    bd = Building.buildingBuilder(1)
+#    bd.plot(axs[0])
+#    clusterer.plotClusters(axs[1], list(clusters.values()))
+    clusterer.plotClusters(axs, list(clusters.values()))
     print("{}: Plot ended.".format(time.time() - start))
     print("{}: Test ended.".format(time.time() - start))
     
@@ -108,10 +116,10 @@ def testTrajectoryClusteringWithPickle():
     
 try:
 #    testTrajectoryMaking()    
-#    testTrajectorySegmentation()  
-    testTrajectoryClustering()
-#    testTrajectoryClusteringWithPickle()  
-#    testPlotClusters()
+##    testTrajectorySegmentation()  
+    testTrajectoryClustering(withPickle=True)
+##    testTrajectoryClusteringWithPickle()  
+##    testPlotClusters()
 except:
     print("Exception:")
     print('-'*60)

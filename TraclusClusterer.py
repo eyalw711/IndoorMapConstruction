@@ -10,10 +10,12 @@ from shapely.geometry import MultiPoint, GeometryCollection, LineString
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-from math import cos
+import math
+from ClusterProcessor import ClusterProcessor
+from Projector import EquirectangularProjector
 
 # for clustering
-from objects import Segment #GLine
+from IMCObjects import Segment, Trajectory #GLine
 from networkx import DiGraph, shortest_path, descendants
 from networkx import exception as nxe
 import itertools
@@ -79,36 +81,20 @@ class SegmentsClusterer:
             node = possibleNodesList[0]
             possibleNodesList = possibleNodesList[1:]
             if node.status == 1:
-                clusters[cid] = list(descendants(self.directReachablityGraph, node))
+                clusters[cid] = list(descendants(self.directReachablityGraph, node)) + [node]
                 print("LineSegmentClustering: added cluster id {}".format(cid))
                 # remove nodes from possibility:
-                newPossibleNodesList = [node for node in possibleNodesList if not node in clusters[cid]]
+                newPossibleNodesList = [nd for nd in possibleNodesList if not nd in clusters[cid]]
                 possibleNodesList = newPossibleNodesList
                 cid += 1
         # todo: remove clusters with no variaty of trajectories
-        return clusters
-#        
-#        for node in possibleNodesList:
-#            raise Exception("LineSegmentClustering: Written very bad! don't use!")
-#            if node.status == 1:
-#                # a noise node can appear in multiple clusters
-#                clusters[cid] = list(descendants(self.directReachablityGraph, node))
-#                if len(clusters[cid]) > 0:
-#                    print("node with desc")
-#                # I argue that a core segment can be a root of a cluster
-#                # i.e. there is no better core in this cluster (two adjacent cores are both reachable
-#                # from one another)
-#                newPossibleNodesList = [node for node in possibleNodesList if not node in clusters[cid]]
-#                possibleNodesList = newPossibleNodesList
-#                cid += 1
-        
-#        # Remove clusters with too few trajectories
 #        for cIndex, cluster in list(clusters.items()):
 #            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
 #            if len(trajIndexesSet) < self.MinLns:
 #                del clusters[cIndex]
+        return clusters
+
         
-    
     def eps_neighborhood_of_seg(self, Li):
         '''
         Traclus article Definition 4
@@ -116,18 +102,22 @@ class SegmentsClusterer:
         matrixIndex = self.segmentsMatrix.segToMatrixInx(Li)
         segmentsFrom3x3List = self.segmentsMatrix.getSegmentsFrom3x3(matrixIndex)
         return [Lj for Lj in segmentsFrom3x3List if Li.myDistance(Lj) < self.eps] # used Gline's myDistance
-#        raise Exception("don't use like this! where is your matrix?")
-     
 
 
-    def plotClusters(axs, clusterList):        
+    def plotClusters(self, axs, clusterList):   
+        '''
+        shows in local xy coords
+        '''
+        proj = self.segmentsMatrix.projector
         colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
+        clusterProcessor = ClusterProcessor(proj) 
+#        i = 0
         for cluster in clusterList:
             ccolor = next(colors)
             for seg in cluster:
                 xs = [seg[0].shapelyPoint.x, seg[1].shapelyPoint.x]
                 ys = [seg[0].shapelyPoint.y, seg[1].shapelyPoint.y]
-                axs.plot(xs, ys, color = ccolor, alpha=0.7, linestyle = '--')
+                axs.plot(xs, ys, color = ccolor, alpha=0.5, linestyle = '--')
             
             # make convex hull:
             hull = MultiPoint([seg[0].shapelyPoint for seg in cluster] + [seg[1].shapelyPoint for seg in cluster]).convex_hull
@@ -135,20 +125,13 @@ class SegmentsClusterer:
                 continue
             else:
                 xs, ys = hull.exterior.xy
-                axs.plot(xs, ys, color = ccolor, linewidth = 5)
+                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5, linestyle = '--')
             
-#            # make convex hulls:
-#            shapes = [MultiPoint([seg[0].shapelyPoint for seg in cluster] + [seg[1].shapelyPoint for seg in cluster]) for cluster in clusterList]
-#            hulls = [mpts.convex_hull for mpts in shapes]
-#            
-#        colors = iter(cm.rainbow(np.linspace(0, 1, len(hulls))))
-#        for hull in hulls:
-#            color = next(colors)
-#            xs, ys = hull.exterior.xy
-#            axs.plot(xs, ys, color)
-#        
-        
-    
+            clusterProcessor.loadGeoCluster_segmentsList(cluster)
+            start, end = clusterProcessor.calcAverageDirection()
+            lat1, long1 = proj.XYToLatLong(start[0], start[1])
+            lat2, long2 = proj.XYToLatLong(end[0], end[1])
+            axs.plot([long1, long2], [lat1, lat2], color = ccolor, linewidth = 5)
     
     # UNUSED METHODS #
     def isCoreLineSegment(self, Li):
@@ -282,30 +265,3 @@ class SegmentsMatrix:
         return result
     
 
-class EquirectangularProjector:
-    '''
-    simple class for projections of small areas on earth to x,y
-    reference: http://stackoverflow.com/a/16271669
-    '''
-    radius = 6371e3
-    def __init__(self, segments_list_of_trajectory_collection):
-        
-        minLat = min(seg.minLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        maxLat = max(seg.maxLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        
-        minLong = min(seg.minLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        maxLong = max(seg.maxLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
-
-        self.meanLat = (minLat + maxLat) / 2.0
-        self.meanLong = (minLong + maxLong) / 2.0
-        self.cosMeanLat = cos(self.meanLat)
-        self.originXY = self.latLongToXY(minLat, minLong)
-        
-    def latLongToXY(self, lat, long):
-        '''
-        x = R * long * cos(meanLat)
-        y = R * lat
-        '''
-        return (EquirectangularProjector.radius * long * self.cosMeanLat, EquirectangularProjector.radius * lat)
-        
-        

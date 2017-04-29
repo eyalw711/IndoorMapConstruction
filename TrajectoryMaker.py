@@ -10,7 +10,7 @@ from shapely.geometry import Polygon, MultiPoint, LinearRing, LineString, MultiP
 from matplotlib import pyplot as plt
 import random
 import pandas as pd
-from objects import GPoint, Fix, Trajectory
+from IMCObjects import GPoint, Fix, Trajectory
    
 class Building:
     def __init__(self, outerWallsLinearRing, innerWallsMultiLineString = None, holesMultiPolygon = None):
