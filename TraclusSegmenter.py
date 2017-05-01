@@ -18,7 +18,7 @@ class TrajectorySegmenter:
         i = 0
         for trajIndex, trajObject in self.trajectoryCollection.items():
 #            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
-            if i == max_num_of_trajectories:  #do faster
+            if i == max_num_of_trajectories:  # only take part of DB
                 return segments
             i+=1
             trajCPsFixList = TrajectorySegmenter.approximateTrajectoryPartitioning(trajObject)

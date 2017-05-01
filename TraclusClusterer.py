@@ -6,7 +6,10 @@ Created on Sun Apr 23 08:45:07 2017
 """
 
 # for geometry and plotting
+from matplotlib import pyplot as plt
+import statistics
 from shapely.geometry import MultiPoint, GeometryCollection, LineString
+from shapely.geometry import Point as shapelyPoint
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -15,7 +18,7 @@ from ClusterProcessor import ClusterProcessor
 from Projector import EquirectangularProjector
 
 # for clustering
-from IMCObjects import Segment, Trajectory #GLine
+from IMCObjects import Segment, Trajectory, LSegment #GLine
 from networkx import DiGraph, shortest_path, descendants
 from networkx import exception as nxe
 import itertools
@@ -24,24 +27,56 @@ class SegmentsClusterer:
     
     def __init__(self, segments_list_of_trajectory_collection, eps, MinLns):
         self.segmentsList = segments_list_of_trajectory_collection
+        self.lsegmentsList = None
         self.eps = eps
         self.MinLns = MinLns
         self.segmentsMatrix = None
         self.directReachablityGraph = None
+        self.projector = None
 #        print("SegmentsClusterer Init: building graph...")
 #        self.directReachablityGraph = self.computeDirectReachabilityGraph()
     
     def initActions(self):
         print("InitActions of SegmentsClusterer:")
-        print("New instance of SegmentsMatrix...")
-        self.segmentsMatrix = SegmentsMatrix(self.segmentsList, self.eps)
+        
         print("Starting Matrix' projector...")
-        self.segmentsMatrix.startMyProjector()
+        self.startMyProjector()
+        
+        print("Convert all segments to local xy")
+        self.convertSegmentsToLocalXY()
+        
+        #### TODO: debug   #########
+        if False:
+            fig, axs = plt.subplots()
+            self.plotAllLocalSegments(axs)
+        
+        print("New instance of SegmentsMatrix...")
+        self.segmentsMatrix = SegmentsMatrix(self.lsegmentsList, self.eps)
+        
         print("Constructing Matrix...")
         self.segmentsMatrix.constructMatrix()
+        
+        print("Matrix constructed!")
+#        for inx, val in self.segmentsMatrix.spInxMap.items():
+#            print("{}: {} items".format(inx, len(val)))
+        
         print("Building the graph...")
         self.directReachablityGraph = self.computeDirectReachabilityGraph()
+        
         print("SegmentsClusterer initialization is complete!")
+    
+    def plotAllLocalSegments(self, axs):
+        for gseg in self.lsegmentsList:
+            axs.plot([gseg.end1[0], gseg.end2[0]], [gseg.end1[1], gseg.end2[1]])
+            
+    def startMyProjector(self):
+        self.projector = EquirectangularProjector(self.segmentsList)
+        
+    def convertSegmentsToLocalXY(self):
+        self.lsegmentsList = [LSegment(self.projector.latLongToXY(gseg.end1[0], gseg.end1[1]),
+                                       self.projector.latLongToXY(gseg.end2[0], gseg.end2[1]),
+                                       gseg.status, gseg.trajIndex) for gseg in self.segmentsList]
+        
         
     def computeDirectReachabilityGraph(self):
         '''
@@ -49,7 +84,7 @@ class SegmentsClusterer:
         an edge in this graph connects from a core lineSeg to a dirReach node
         '''
         dig = DiGraph() #Directed Graph
-        dig.add_nodes_from(self.segmentsList)
+        dig.add_nodes_from(self.lsegmentsList)
         i = 0
         for anode in dig.nodes(): #TODO: might be sped up with thread workers?
 #            print("computeDirectReachabilityGraph: calculating edges of node #{}".format(i))
@@ -82,7 +117,7 @@ class SegmentsClusterer:
             possibleNodesList = possibleNodesList[1:]
             if node.status == 1:
                 clusters[cid] = list(descendants(self.directReachablityGraph, node)) + [node]
-                print("LineSegmentClustering: added cluster id {}".format(cid))
+#                print("LineSegmentClustering: added cluster id {}".format(cid))
                 # remove nodes from possibility:
                 newPossibleNodesList = [nd for nd in possibleNodesList if not nd in clusters[cid]]
                 possibleNodesList = newPossibleNodesList
@@ -108,30 +143,75 @@ class SegmentsClusterer:
         '''
         shows in local xy coords
         '''
-        proj = self.segmentsMatrix.projector
         colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
-        clusterProcessor = ClusterProcessor(proj) 
-#        i = 0
-        for cluster in clusterList:
+        clusterProcessor = ClusterProcessor(self.MinLns) 
+        print("plotClusters: {} clusters to plot.".format(len(clusterList)))
+        for i, cluster in enumerate(clusterList):
+#            if i != 2:
+#                continue
+#            print("plotting cluster i = {}".format(i))
             ccolor = next(colors)
+            clusterProcessor.loadLocalCluster_lsegList(cluster)
+            
+            #################################
+            #       Representative          #
+            #################################
+            
+            repr_And_walls = clusterProcessor.calcRepresentativeLocal(30)
+            rxs = [raw[0][0] for raw in repr_And_walls]
+            rys = [raw[0][1] for raw in repr_And_walls]
+            if len(rxs) > 1:
+                axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+                axs.scatter(rxs, rys, color = 'r', s =150)
+            else:
+                print("cluster {} had no good representative".format(i))
+                continue
+            
+            rxs = [raw[1][0] for raw in repr_And_walls]
+            rys = [raw[1][1] for raw in repr_And_walls]
+#            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+            axs.scatter(rxs, rys, color = 'b', s =150)
+#            
+            rxs = [raw[2][0] for raw in repr_And_walls]
+            rys = [raw[2][1] for raw in repr_And_walls]
+#            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+            axs.scatter(rxs, rys, color = 'g', s =150)
+            
             for seg in cluster:
-                xs = [seg[0].shapelyPoint.x, seg[1].shapelyPoint.x]
-                ys = [seg[0].shapelyPoint.y, seg[1].shapelyPoint.y]
+                e1x, e1y = seg.end1
+                e2x, e2y = seg.end2
+                xs = [e1x, e2x]
+                ys = [e1y, e2y]
                 axs.plot(xs, ys, color = ccolor, alpha=0.5, linestyle = '--')
             
             # make convex hull:
-            hull = MultiPoint([seg[0].shapelyPoint for seg in cluster] + [seg[1].shapelyPoint for seg in cluster]).convex_hull
+            hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
+                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
+
             if type(hull) == GeometryCollection or type(hull) == LineString:
                 continue
             else:
+#                print("made hull")
                 xs, ys = hull.exterior.xy
-                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5, linestyle = '--')
+                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
             
-            clusterProcessor.loadGeoCluster_segmentsList(cluster)
-            start, end = clusterProcessor.calcAverageDirection()
-            lat1, long1 = proj.XYToLatLong(start[0], start[1])
-            lat2, long2 = proj.XYToLatLong(end[0], end[1])
-            axs.plot([long1, long2], [lat1, lat2], color = ccolor, linewidth = 5)
+
+            #################################
+            #   AvgDir Plotting             #
+            #################################
+            
+#            avgDirLLine = clusterProcessor.calcAverageDirection()
+#            axs.plot([avgDirLLine.end1[0], avgDirLLine.end2[0]], [avgDirLLine.end1[1], avgDirLLine.end2[1]], color = ccolor, linewidth = 5)
+#            axs.scatter([avgDirLLine.end1[0]],[avgDirLLine.end1[1]], color = 'r', s =150)
+            
+            
+            
+#            print("cluster i={}, reprAndWals = {}".format(i, repr_And_walls))
+            
+            
+            
+                
+                
     
     # UNUSED METHODS #
     def isCoreLineSegment(self, Li):
@@ -193,8 +273,8 @@ class SegmentsClusterer:
        
     
 class SegmentsMatrix:
-    def __init__(self, segments_list_of_trajectory_collection, eps):
-        self.segmentList = segments_list_of_trajectory_collection
+    def __init__(self, lsegments_list, eps):
+        self.lsegmentList = lsegments_list
         '''
         <spatialIndex, Segment Class Object List> dictionary
         where spatialIndex is a tuple of (i, j) - 
@@ -210,19 +290,15 @@ class SegmentsMatrix:
         originXY    
         '''
         self.spInxMap = {}
-        self.projector = None
         self.eps = eps
-        
-    def startMyProjector(self):
-        self.projector = EquirectangularProjector(self.segmentList)
     
     
-    def segToMatrixInx(self, seg):
+    def segToMatrixInx(self, lseg):
         '''
         returns the index of the matrix the segment belongs to
         '''
-        seg_end1_xy = self.projector.latLongToXY(seg[0][0], seg[0][1])
-        seg_end2_xy = self.projector.latLongToXY(seg[1][0], seg[1][1])
+        seg_end1_xy = lseg.end1 #self.projector.latLongToXY(seg[0][0], seg[0][1])
+        seg_end2_xy = lseg.end2 #self.projector.latLongToXY(seg[1][0], seg[1][1])
         xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0
         ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0
         segMXY = (xm, ym)
@@ -234,13 +310,15 @@ class SegmentsMatrix:
         segMXY inx must be greater than originXY in both dimensions
         '''
         mx, my = segMXY
-        i = int((mx - self.projector.originXY[0]) / self.eps)
-        j = int((my - self.projector.originXY[1]) / self.eps)
+        i = int(mx / self.eps)
+        j = int(my / self.eps)
+#        i = int((mx - self.projector.originXY[0]) / self.eps)
+#        j = int((my - self.projector.originXY[1]) / self.eps)
         return (i,j)
         
     def constructMatrix(self):
         myMap = {}
-        for seg in self.segmentList:
+        for seg in self.lsegmentList:
             segMatrixIndex = self.segToMatrixInx(seg)
             if segMatrixIndex in myMap:
                 myMap[segMatrixIndex].append(seg)
