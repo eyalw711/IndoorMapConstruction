@@ -15,10 +15,10 @@ def testTrajectoryMaking():
     fig, axs = plt.subplots()  
     bd = Building.buildingBuilder(1)
     tm = TrajectoryMaker(bd)
-    t1 = tm.makeFixList(2)
+    t1 = tm.makeFixList(1)
     bd.plot(axs)
     t1.plot(axs)
-    tm.makeDataSet('KfarSaba', 20)
+    tm.makeDataSet('KfarSaba', 35, 1)
     print("testTrajectoryMaking: End")
 
 def testTrajectorySegmentation():
@@ -115,9 +115,9 @@ def testTrajectoryClusteringWithPickle():
     print("{}: Test ended.".format(time.time() - start))
     
 try:
-#    testTrajectoryMaking()    
+    testTrajectoryMaking()    
 ##    testTrajectorySegmentation()  
-    testTrajectoryClustering(withPickle=True)
+#    testTrajectoryClustering(withPickle=True)
 ##    testTrajectoryClusteringWithPickle()  
 ##    testPlotClusters()
 except:

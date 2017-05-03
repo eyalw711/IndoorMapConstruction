@@ -7,6 +7,7 @@ Created on Sun Apr 23 08:45:07 2017
 
 # for geometry and plotting
 from matplotlib import pyplot as plt
+import numpy as np
 import statistics
 from shapely.geometry import MultiPoint, GeometryCollection, LineString
 from shapely.geometry import Point as shapelyPoint
@@ -122,7 +123,7 @@ class SegmentsClusterer:
                 newPossibleNodesList = [nd for nd in possibleNodesList if not nd in clusters[cid]]
                 possibleNodesList = newPossibleNodesList
                 cid += 1
-        # todo: remove clusters with no variaty of trajectories
+#       remove clusters with no variaty of trajectories
 #        for cIndex, cluster in list(clusters.items()):
 #            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
 #            if len(trajIndexesSet) < self.MinLns:
@@ -143,6 +144,7 @@ class SegmentsClusterer:
         '''
         shows in local xy coords
         '''
+        axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
         colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
         clusterProcessor = ClusterProcessor(self.MinLns) 
         print("plotClusters: {} clusters to plot.".format(len(clusterList)))
@@ -162,20 +164,24 @@ class SegmentsClusterer:
             rys = [raw[0][1] for raw in repr_And_walls]
             if len(rxs) > 1:
                 axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-                axs.scatter(rxs, rys, color = 'r', s =150)
+#                cols = np.arange(len(rxs))
+#                axs.scatter(rxs, rys, c = cols, s =150)
             else:
                 print("cluster {} had no good representative".format(i))
                 continue
             
-            rxs = [raw[1][0] for raw in repr_And_walls]
-            rys = [raw[1][1] for raw in repr_And_walls]
-#            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-            axs.scatter(rxs, rys, color = 'b', s =150)
+            rxs = [raw[1][0] for raw in repr_And_walls] + [raw[2][0] for raw in repr_And_walls][::-1]
+            rxs += [rxs[0]]
+            rys = [raw[1][1] for raw in repr_And_walls] + [raw[2][1] for raw in repr_And_walls][::-1]
+            rys += [rys[0]]
+            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+#            axs.scatter(rxs, rys, color = 'b', s =150)
 #            
-            rxs = [raw[2][0] for raw in repr_And_walls]
-            rys = [raw[2][1] for raw in repr_And_walls]
+#            rxs = [raw[2][0] for raw in repr_And_walls]
+#            rys = [raw[2][1] for raw in repr_And_walls]
 #            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-            axs.scatter(rxs, rys, color = 'g', s =150)
+#            axs.scatter(rxs, rys, color = 'g', s =150)
+            
             
             for seg in cluster:
                 e1x, e1y = seg.end1
@@ -183,17 +189,17 @@ class SegmentsClusterer:
                 xs = [e1x, e2x]
                 ys = [e1y, e2y]
                 axs.plot(xs, ys, color = ccolor, alpha=0.5, linestyle = '--')
-            
-            # make convex hull:
-            hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
-                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
-
-            if type(hull) == GeometryCollection or type(hull) == LineString:
-                continue
-            else:
-#                print("made hull")
-                xs, ys = hull.exterior.xy
-                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
+#            
+#            # make convex hull:
+#            hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
+#                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
+#
+#            if type(hull) == GeometryCollection or type(hull) == LineString:
+#                continue
+#            else:
+##                print("made hull")
+#                xs, ys = hull.exterior.xy
+#                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
             
 
             #################################

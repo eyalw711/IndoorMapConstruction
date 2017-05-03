@@ -129,10 +129,10 @@ class TrajectoryMaker:
         self.trajectoryCollection.append(aTraj)
         return aTraj
     
-    def makeDataSet(self, filename, numberOfTrajectories):
+    def makeDataSet(self, filename, numberOfTrajectories, secPerFix):
         data = []
         for i in range(numberOfTrajectories):
-            self.makeFixList(2)
+            self.makeFixList(secPerFix)
         
         for i in range(len(self.trajectoryCollection)):
             traj = self.trajectoryCollection[i]
@@ -204,5 +204,5 @@ def test1():
     x,y = traj.scatterXY()
     axs.plot(x,y)
     
-    tm.makeDataSet('BarIlan', 20)
+    tm.makeDataSet('BarIlan', 20, 2)
 

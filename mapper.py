@@ -20,7 +20,14 @@ class IndoorMapper:
         
     def run(self, withPickle):
         start = time.time()
-        if not withPickle:
+        pickle_success = True
+        if withPickle:
+            try:
+                with open("SegmentClusterer_eps_{}_minlns_{}.p".format(self.eps, self.MinLns), "rb") as pickleFile:
+                    clusterer = pickle.load(pickleFile)
+            except Exception:
+                pickle_success = False  
+        if (not withPickle) or (withPickle and not pickle_success):
             print("{}: This is a long operation, please be patient...".format(time.time() - start))
             loader = TrajectoryCollectionCSVLoader()
             print("{}: Loading Trajectory collection...".format(time.time() - start))
@@ -44,13 +51,10 @@ class IndoorMapper:
             
             print("{}: SegmentsClusterer starting initActions...".format(time.time() - start))
             clusterer.initActions()
-            with open("SegmentClusterer_15_1.p", "wb") as pickleFile:
+            with open("SegmentClusterer_eps_{}_minlns_{}.p".format(self.eps, self.MinLns), "wb") as pickleFile:
                 pickle.dump(clusterer, pickleFile)
             print("Saved clusterer as a pickle file, I did a lot of work to get it!")
-        else:
-            with open("SegmentClusterer_15_1.p", "rb") as pickleFile:
-                clusterer = pickle.load(pickleFile)
-        
+
         print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachablityGraph.nodes()),
               len(clusterer.directReachablityGraph.edges())))
         clusters = clusterer.LineSegmentClustering()
@@ -70,4 +74,5 @@ def testKfarSaba(eps, MinLns):
     mapper = IndoorMapper(csvName, eps, MinLns)
     mapper.run(False)
     return
-    
+
+testKfarSaba(40, 3)
