@@ -159,7 +159,7 @@ class SegmentsClusterer:
             #       Representative          #
             #################################
             
-            repr_And_walls = clusterProcessor.calcRepresentativeLocal(30)
+            repr_And_walls = clusterProcessor.calcRepresentativeLocal(0.4)
             rxs = [raw[0][0] for raw in repr_And_walls]
             rys = [raw[0][1] for raw in repr_And_walls]
             if len(rxs) > 1:
@@ -168,6 +168,16 @@ class SegmentsClusterer:
 #                axs.scatter(rxs, rys, c = cols, s =150)
             else:
                 print("cluster {} had no good representative".format(i))
+                # make convex hull:
+                hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
+                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
+
+                if type(hull) == GeometryCollection or type(hull) == LineString:
+                    continue
+                else:
+#                print("made hull")
+                    xs, ys = hull.exterior.xy
+                    axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
                 continue
             
             rxs = [raw[1][0] for raw in repr_And_walls] + [raw[2][0] for raw in repr_And_walls][::-1]
@@ -190,16 +200,7 @@ class SegmentsClusterer:
                 ys = [e1y, e2y]
                 axs.plot(xs, ys, color = ccolor, alpha=0.5, linestyle = '--')
 #            
-#            # make convex hull:
-#            hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
-#                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
-#
-#            if type(hull) == GeometryCollection or type(hull) == LineString:
-#                continue
-#            else:
-##                print("made hull")
-#                xs, ys = hull.exterior.xy
-#                axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
+#            
             
 
             #################################

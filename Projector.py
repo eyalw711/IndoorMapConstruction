@@ -14,19 +14,25 @@ class EquirectangularProjector:
     reference: http://stackoverflow.com/a/16271669
     '''
     radius = 6371e3
-    def __init__(self, segments_list_of_trajectory_collection):
-        minLat = min(seg.minLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        maxLat = max(seg.maxLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        
-        minLong = min(seg.minLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
-        maxLong = max(seg.maxLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
-
+    def __init__(self, segments_list_of_trajectory_collection, useSegments = True, minLat_minLong = (0,0)):
+        ''' all inputs are degrees, all calculations are radiands '''
+        if useSegments:
+            minLat = min(seg.minLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
+            maxLat = max(seg.maxLatOfLineSeg() for seg in segments_list_of_trajectory_collection)
+            
+            minLong = min(seg.minLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
+            maxLong = max(seg.maxLongOfLineSeg() for seg in segments_list_of_trajectory_collection)
+    
+        else:
+            minLat, minLong = minLat_minLong
+            maxLat, maxLong = minLat_minLong
+            
         self.meanLat = (minLat + maxLat) / 2.0
         self.meanLong = (minLong + maxLong) / 2.0
-        self.cosMeanLat = math.cos(self.meanLat)
+        self.cosMeanLat = math.cos(math.radians(self.meanLat))
         
-        ox = EquirectangularProjector.radius * minLong * self.cosMeanLat
-        oy = EquirectangularProjector.radius * minLat
+        ox = EquirectangularProjector.radius * math.radians(minLong) * self.cosMeanLat
+        oy = EquirectangularProjector.radius * math.radians(minLat)
         self.originXY = (ox, oy)
         
     def latLongToXY(self, lat, long):
@@ -35,12 +41,22 @@ class EquirectangularProjector:
         x = R * long * cos(meanLat)
         y = R * lat
         '''
-        x = EquirectangularProjector.radius * long * self.cosMeanLat - self.originXY[0]
-        y = EquirectangularProjector.radius * lat - self.originXY[1]
+        x = EquirectangularProjector.radius * math.radians(long) * self.cosMeanLat - self.originXY[0]
+        y = EquirectangularProjector.radius * math.radians(lat) - self.originXY[1]
         return (x,y)
         
     def XYToLatLong(self, x, y):
-        return ((y+self.latLongToXY[1])/ EquirectangularProjector.radius ,(x + self.latLongToXY[0])/(EquirectangularProjector.radius * self.cosMeanLat))        
+        latRad = (y + self.originXY[1])/ EquirectangularProjector.radius
+        lat = math.degrees(latRad)
+        if not (-90 <= lat <= 90):
+            raise ValueError("Lat conversions are out of range")
+        longRad = (x + self.originXY[0])/(EquirectangularProjector.radius * self.cosMeanLat)
+        long = math.degrees(longRad)
+        if not (-180 <= long <= 180):
+            raise ValueError("Long conversions are out of range")
+        return (lat, long)
+#        return (math.degrees((y+self.originXY[1])/ EquirectangularProjector.radius) ,\
+#                math.degrees((x + self.originXY[0])/(EquirectangularProjector.radius * self.cosMeanLat)))        
 
     
 
@@ -80,36 +96,3 @@ def testRotationalProjector():
     axs.plot([ll2.end1[0], ll2.end2[0]],
              [ll2.end1[1], ll2.end2[1]], color = 'b')
     
-        
-
-    
-#    def latLongToRotatedXY(self, lat, long):
-#        raise Exception("Dont rotate in Equirectangular projector!")
-#        x,y = self.latLongToXY(lat, long)
-#        return self.xyToRotatedXY(x,y)
-#        xtag = math.cos(self.phi) * x + math.sin(self.phi) * y
-#        ytag = -math.sin(self.phi) * x + math.cos(self.phi) * y
-#        return (xtag, ytag)
-    
-    
-        
-
-    
-#    def rotatedXYToLatLong(self, xtag, ytag):
-#        raise Exception("Dont rotate in Equirectangular projector!")
-#        x,y = self.rotatedXYToXY(xtag, ytag)
-#        return self.XYToLatLong(x,y)
-    
-#def testProjector():
-#    proj = EquirectangularProjector([GLine(GPoint(34,32.005), GPoint(34.005,32.01))])
-#    print("lat long" , 34, 32.005)
-#    x, y = proj.latLongToXY(34,32.005)
-#    print("x,y", x,y)
-#    proj.rotate(45)
-#    xr, yr = proj.xyToRotatedXY(x,y)
-#    print("xr,yr", xr,yr)
-#    xo, yo = proj.rotatedXYToXY(xr, yr)
-#    print("xo,yo", xo,yo)
-#    lato, longo = proj.XYToLatLong(xo, yo)
-#    print("lato,longo", lato,longo)
-        

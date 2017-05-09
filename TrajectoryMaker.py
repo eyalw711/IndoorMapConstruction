@@ -11,22 +11,30 @@ from matplotlib import pyplot as plt
 import random
 import pandas as pd
 from IMCObjects import GPoint, Fix, Trajectory
-   
+from Projector import EquirectangularProjector
+import gmplot
+
 class Building:
-    def __init__(self, outerWallsLinearRing, innerWallsMultiLineString = None, holesMultiPolygon = None):
+    def __init__(self, outerWallsLinearRing, innerWallsMultiLineString = None, holesPolygonList = []):
         """
-        param outerWallsRing: a LinearRing class object for outer walls. include points for walls connection.
+        param outerWallsRing: a LinearRing class object for outer walls. include points for walls connection. <long, lat>!!!!
         param innerWallsList: a list of LineString class objects for inner walls of the building.
         """
         self.outerWallsLinearRing = outerWallsLinearRing
         self.innerWallsMultiLineString = innerWallsMultiLineString
-        self.holesMultiPolygon = holesMultiPolygon
+        self.holesPolygonList = holesPolygonList
+    
+    def plotOnGoogleMap(self, buildingNum):
+        longs, lats = zip(*self.outerWallsLinearRing.coords)
+        gmap = gmplot.GoogleMapPlotter(lats[0], longs[0], 20)
+        gmap.plot(lats, longs)
+        gmap.draw("building_{}_GMAP.html".format(buildingNum))
     
     def getPolygon(self):
         outerWallsCoords = self.outerWallsLinearRing.coords
         polygon = Polygon(outerWallsCoords)
-        if not self.holesMultiPolygon == None:
-            polygon = polygon.difference(self.holesMultiPolygon)
+        if self.holesPolygonList != None:
+            polygon = polygon.difference(MultiPolygon(self.holesPolygonList))
         return polygon
     
     def containsPoint(self, gpoint):
@@ -35,57 +43,103 @@ class Building:
         
     def legalTravel(self, pt1, pt2):
         line = LineString([pt1.getCoords(), pt2.getCoords()])
-        illegal = line.intersects(self.outerWallsLinearRing) or any(line.intersects(geo) for geo in [self.innerWallsMultiLineString, self.holesMultiPolygon] if geo != None)
+        illegal = line.intersects(self.outerWallsLinearRing) or any(line.intersects(geo) for geo in [self.innerWallsMultiLineString]+self.holesPolygonList if geo != None)
         return not illegal
 
     def buildingBuilder(typenum):
         if typenum == 1:
-            outerWallsCrds = list()
-            meetingInnerOuter = list()
-            startPoint = GPoint(32.178074, 34.911721)
-            currPoint = GPoint(32.178074, 34.911721) #Start as north westren point
-            outerWallsCrds.append(currPoint.getCoords())
-            for i in range(5):
-                nextPoint = currPoint.travel(90,5)
-                outerWallsCrds.append(nextPoint.getCoords())
-                if not (i == 4):
-                    meetingInnerOuter.append(nextPoint)
-                currPoint = nextPoint
-                
-            nextPoint = currPoint.travel(180, 10)
-            outerWallsCrds.append(nextPoint.getCoords())
-            currPoint = nextPoint
-            
-            nextPoint = currPoint.travel(270, 25)
-            outerWallsCrds.append(nextPoint.getCoords())
-            outerWallsCrds.append(startPoint.getCoords())
-            
-            outerWallsLinRing = LinearRing(outerWallsCrds)
-            
-            innerWallsCrds = list()
-            for i in [0,2]:
-                innerWallsCrds.append(
-                        [meetingInnerOuter[i].getCoords(),
-                         meetingInnerOuter[i].travel(180,8).getCoords(),
-                         meetingInnerOuter[i+1].travel(180,8).getCoords(),
-                         meetingInnerOuter[i+1].getCoords()])
-            innerWallsMultiPolygon = MultiPolygon([Polygon(crds) for crds in innerWallsCrds])
-            
-            return Building(outerWallsLinRing, holesMultiPolygon = innerWallsMultiPolygon)
-
+            return Building.buildBuilding1()
+        elif typenum == 2:
+            return Building.buildBuilding2()
         else:
             print("No implementation for typenum = {}".format(typenum))
             return None
+    
+    
+    def buildBuilding2():
+        
+        shiftpoint = (32.114104, 34.803086)
+        projector = EquirectangularProjector(None, useSegments=False, minLat_minLong=shiftpoint)
+#        shiftPointInXY = projector.latLongToXY(*shiftpoint)
+#        print("ShiftPoint in XY: {}".format(shiftPointInXY))
+        def addTupleElementWise(t1, t2):
+            return (t1[0] + t2[0], t1[1] + t2[1])
+#        
+#        outer_coords_l = [addTupleElementWise(xy, shiftPointInXY) for xy in [(0, 70), (70, 70), (70, 0), (0, 0), (0, 70)]]
+#        hole1_coords_l = [addTupleElementWise(xy, shiftPointInXY) for xy in [(10, 60), (30, 60), (30, 40), (10, 40), (10,60)]]
+#        hole2_coords_l = [(x + 30, y) for (x,y) in hole1_coords_l] #shift 30 meters on x
+#        hole3_coords_l = [(x, y - 30) for (x,y) in hole2_coords_l] #shift 30 meters down on y of hole 2
+#        hole4_coords_l = [(x, y - 30) for (x,y) in hole1_coords_l] #shift 30 meters down on y of hole 1
+        
+        outer_coords_l = [(0, 70), (70, 70), (70, 0), (0, 0), (0, 70)]
+        hole1_coords_l = [(10, 60), (30, 60), (30, 40), (10, 40), (10,60)]
+        hole2_coords_l = [(x + 30, y) for (x,y) in hole1_coords_l] #shift 30 meters on x
+        hole3_coords_l = [(x, y - 30) for (x,y) in hole2_coords_l] #shift 30 meters down on y of hole 2
+        hole4_coords_l = [(x, y - 30) for (x,y) in hole1_coords_l] #shift 30 meters down on y of hole 1
+        
+        outer_coords_g = [projector.XYToLatLong(*e)[::-1] for e in outer_coords_l] #reverse because long is "x" and lat is "y"
+        hole1_coords_g = [projector.XYToLatLong(*e)[::-1] for e in hole1_coords_l]
+        hole2_coords_g = [projector.XYToLatLong(*e)[::-1] for e in hole2_coords_l]
+        hole3_coords_g = [projector.XYToLatLong(*e)[::-1] for e in hole3_coords_l]
+        hole4_coords_g = [projector.XYToLatLong(*e)[::-1] for e in hole4_coords_l]
+        
+        holesPolygons_list = [Polygon(hole1_coords_g), Polygon(hole2_coords_g), Polygon(hole3_coords_g), Polygon(hole4_coords_g)]
+#        holesMultiPoly = MultiPolygon(holesPolygonsList)
+        outerWallsLinRing = LinearRing(outer_coords_g)
+        building2 = Building(outerWallsLinRing, holesPolygonList=holesPolygons_list)
+#        fig, axs = plt.subplots()
+#        building2.plot(axs)
+        return building2
+        
+        
+        
+    def buildBuilding1():
+        outerWallsCrds = list()
+        meetingInnerOuter = list()
+        startPoint = GPoint(32.178074, 34.911721)
+        currPoint = GPoint(32.178074, 34.911721) #Start as north westren point
+        outerWallsCrds.append(currPoint.getCoords())
+        for i in range(5):
+            nextPoint = currPoint.travel(90,5)
+            outerWallsCrds.append(nextPoint.getCoords())
+            if not (i == 4):
+                meetingInnerOuter.append(nextPoint)
+            currPoint = nextPoint
+            
+        nextPoint = currPoint.travel(180, 10)
+        outerWallsCrds.append(nextPoint.getCoords())
+        currPoint = nextPoint
+        
+        nextPoint = currPoint.travel(270, 25)
+        outerWallsCrds.append(nextPoint.getCoords())
+        outerWallsCrds.append(startPoint.getCoords())
+        
+        outerWallsLinRing = LinearRing(outerWallsCrds)
+        
+        innerWallsCrds = list()
+        for i in [0,2]:
+            innerWallsCrds.append(
+                    [meetingInnerOuter[i].getCoords(),
+                     meetingInnerOuter[i].travel(180,8).getCoords(),
+                     meetingInnerOuter[i+1].travel(180,8).getCoords(),
+                     meetingInnerOuter[i+1].getCoords()])
+#        innerWallsMultiPolygon = MultiPolygon([Polygon(crds) for crds in innerWallsCrds])
+        
+        return Building(outerWallsLinRing, holesPolygonList = [Polygon(crds) for crds in innerWallsCrds]) #holesMultiPolygon = innerWallsMultiPolygon)
         
     def plot(self, axs):
         polygon = self.getPolygon()#Polygon(self.outerWallsLinearRing)
         xs, ys = polygon.exterior.xy
         axs.fill(xs, ys, alpha=0.5, fc='r', ec='none')
+        
         if self.innerWallsMultiLineString != None:
             for line in self.innerWallsMultiLineString:
                 x, y = line.xy
                 axs.plot(x, y, color='#6699cc', alpha=0.7, linewidth=3, solid_capstyle='round', zorder=2)
-
+        
+        for phole in self.holesPolygonList:
+            xs, ys = phole.exterior.xy
+            axs.fill(xs, ys, alpha=1, fc='black', ec='none')
 
 class TrajectoryMaker:
     def __init__(self, building):
@@ -115,23 +169,35 @@ class TrajectoryMaker:
         aTraj = Trajectory([currFix])
         currBrng = random.uniform(0,360)
         while t < T:
+            i=0
             while True:
-                bearingNoise = random.uniform(-25,25)
+                
+                bearingNoise = random.uniform(-75,75)
                 nextFix = currFix.travel(currBrng + bearingNoise, velocity * dt).toFix(t+dt)
                 if self.building.legalTravel(currFix, nextFix):
                 #if nextFix.within(self.building):
+#                    print("t is {}".format(t))
                     t += dt
                     aTraj.append(nextFix)
                     currFix = nextFix
                     break
                 else:
                     currBrng += random.uniform(-45,45)
+                    i+=1
+                    if i > 500:
+                        fig,axs = plt.subplots()
+                        axs.set_title("failed 500 times to make a fix list")
+                        print("failed 500 times to make a fix list")
+                        self.building.plot(axs)
+                        axs.scatter([currFix.getLong()], [currFix.getLat()])
+                        return None
         self.trajectoryCollection.append(aTraj)
         return aTraj
     
     def makeDataSet(self, filename, numberOfTrajectories, secPerFix):
         data = []
         for i in range(numberOfTrajectories):
+            print("makeDataSet: making trajectory {}".format(i))
             self.makeFixList(secPerFix)
         
         for i in range(len(self.trajectoryCollection)):
@@ -206,3 +272,17 @@ def test1():
     
     tm.makeDataSet('BarIlan', 20, 2)
 
+#bd2 = Building.buildBuilding2()
+#tm = TrajectoryMaker(bd2)
+#tm.makeDataSet('PTK', 20, 1)
+
+
+#traj = tm.makeFixList(1)
+
+#fig, axs = plt.subplots()
+#bd2.plot(axs)
+#traj.plot(axs)
+#pts = [tm.selectStartingFix() for i in range(10)]
+#longs = [pt.getLong() for pt in pts]
+#lats = [pt.getLat() for pt in pts]
+#axs.scatter(longs, lats)

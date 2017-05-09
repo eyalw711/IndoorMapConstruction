@@ -7,18 +7,39 @@ from TraclusSegmenter import TrajectorySegmenter
 from TraclusClusterer import SegmentsClusterer
 from matplotlib import pyplot as plt
 from shapely.geometry import MultiPoint
+from mapper import IndoorMapper
 import time
 
-
-def testTrajectoryMaking():
+def testMapper():
+    eps = 4
+    minLns = 6
+    scenes = {
+        1: (Building.buildBuilding1, 'KfarSaba'),
+        2: (Building.buildBuilding2, 'PTK')
+    }
+    sceneNumber = 2 #'KfarSaba'
+    builderfunc, sceneName = scenes[sceneNumber]
+    fig, axs = plt.subplots(1,2)
+    fig.suptitle("Mapping {} with eps = {} minLns = {}".format(sceneName, eps, minLns))
+    axs[0].set_title('Simulated Building')
+    bd = builderfunc(); #Building.buildingBuilder()#Building.buildBuilding1()
+    bd.plot(axs[0])
+    axs[1].set_title('Mapping Result')
+    IndoorMapper.testMapperOn(axs[1], sceneName, eps, minLns)
+    
+    
+def testTrajectoryMaking(buildingNum):
+    siteNames = {1: 'KfarSaba', 2: 'PTK'}
     print("testTrajectoryMaking: Run")
     fig, axs = plt.subplots()  
-    bd = Building.buildingBuilder(1)
+    fig.suptitle("testTrajectoryMaking")
+    bd = Building.buildingBuilder(buildingNum)
+    bd.plotOnGoogleMap(buildingNum)
     tm = TrajectoryMaker(bd)
     t1 = tm.makeFixList(1)
     bd.plot(axs)
     t1.plot(axs)
-    tm.makeDataSet('KfarSaba', 35, 1)
+    tm.makeDataSet(siteNames[buildingNum], 25, 1)
     print("testTrajectoryMaking: End")
 
 def testTrajectorySegmentation():
@@ -115,7 +136,9 @@ def testTrajectoryClusteringWithPickle():
     print("{}: Test ended.".format(time.time() - start))
     
 try:
-    testTrajectoryMaking()    
+    testMapper()
+    plt.show()
+#    testTrajectoryMaking(2)    
 ##    testTrajectorySegmentation()  
 #    testTrajectoryClustering(withPickle=True)
 ##    testTrajectoryClusteringWithPickle()  
@@ -126,8 +149,3 @@ except:
     traceback.print_exc(file=sys.stdout)
     print('-'*60)
     
-#frm = nv.FrameE(name = 'WGS84', a=6371e3, f= 0)
-#pta1 = frm.GeoPoint(32,34, degrees = True)
-#pta2 = frm.GeoPoint(31.999, 34.001, degrees = True)
-#d, b1, b2 = pta1.distance_and_azimuth(pta2, degrees = True)
-#print("dist {}m, bearing1 {}, bearing2 {}".format(d,b1,b2))
