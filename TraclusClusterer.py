@@ -6,20 +6,17 @@ Created on Sun Apr 23 08:45:07 2017
 """
 
 # for geometry and plotting
-from matplotlib import pyplot as plt
-import numpy as np
-import statistics
 from shapely.geometry import MultiPoint, GeometryCollection, LineString
 from shapely.geometry import Point as shapelyPoint
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
-import math
 from ClusterProcessor import ClusterProcessor
 from Projector import EquirectangularProjector
+import math
 
 # for clustering
-from IMCObjects import Segment, Trajectory, LSegment #GLine
+from IMCObjects import Segment, Trajectory, LSegment
 from networkx import DiGraph, shortest_path, descendants
 from networkx import exception as nxe
 import itertools
@@ -34,8 +31,6 @@ class SegmentsClusterer:
         self.segmentsMatrix = None
         self.directReachablityGraph = None
         self.projector = None
-#        print("SegmentsClusterer Init: building graph...")
-#        self.directReachablityGraph = self.computeDirectReachabilityGraph()
     
     def initActions(self):
         print("InitActions of SegmentsClusterer:")
@@ -46,7 +41,7 @@ class SegmentsClusterer:
         print("Convert all segments to local xy")
         self.convertSegmentsToLocalXY()
         
-        #### TODO: debug   #########
+        # TODO: debug   #########
         if False:
             fig, axs = plt.subplots()
             self.plotAllLocalSegments(axs)
@@ -60,10 +55,7 @@ class SegmentsClusterer:
         print("Matrix constructed!")
 #        for inx, val in self.segmentsMatrix.spInxMap.items():
 #            print("{}: {} items".format(inx, len(val)))
-        
-        print("Building the graph...")
-        self.directReachablityGraph = self.computeDirectReachabilityGraph()
-        
+
         print("SegmentsClusterer initialization is complete!")
     
     def plotAllLocalSegments(self, axs):
@@ -80,50 +72,54 @@ class SegmentsClusterer:
         
         
     def computeDirectReachabilityGraph(self):
-        '''
+        """
         an edge in the graph v1->v2 tells us that v2 is dirReachable from v1
         an edge in this graph connects from a core lineSeg to a dirReach node
-        '''
-        dig = DiGraph() #Directed Graph
-        dig.add_nodes_from(self.lsegmentsList)
+        :return: void
+        """
+
+        self.directReachablityGraph = DiGraph() #Directed Graph
+        self.directReachablityGraph.add_nodes_from(self.lsegmentsList)
         i = 0
-        for anode in dig.nodes(): #TODO: might be sped up with thread workers?
-#            print("computeDirectReachabilityGraph: calculating edges of node #{}".format(i))
+        for anode in self.directReachablityGraph.nodes():
             i += 1
             a_epsN = self.eps_neighborhood_of_seg(anode)
-            if len(a_epsN) < self.MinLns: # anode is not a core segment
+            if len(a_epsN) < (self.MinLns)*0.707: # anode is not a core segment
                 anode.status = 2 # noise
                 continue
-            
-            anode.status = 1 # signal(core)
+            elif len(a_epsN) < self.MinLns:
+                anode.status = 3 # medium
+            else:    
+                anode.status = 1 # signal(core)
             for bnode in a_epsN:
                 if anode is bnode:
                     continue
-                dig.add_edge(anode , bnode)
-        return dig
+                self.directReachablityGraph.add_edge(anode , bnode)
     
     
     def LineSegmentClustering(self):
-        '''
+        """
         Algorithm Line Segment Clustering
         works after the computeDirectReachabilityGraph was called
         returns a dictionary of <cid, cluster>
-        '''
+        :return: void
+        """
         clusters = {}
         cid = 0
-        possibleNodesList = list(self.directReachablityGraph.nodes())
+        possible_nodes_list = list(self.directReachablityGraph.nodes())
         
-        while len(possibleNodesList) > 0:
-            node = possibleNodesList[0]
-            possibleNodesList = possibleNodesList[1:]
+        while len(possible_nodes_list) > 0:
+            node = possible_nodes_list[0]
+            possible_nodes_list = possible_nodes_list[1:]
             if node.status == 1:
                 clusters[cid] = list(descendants(self.directReachablityGraph, node)) + [node]
-#                print("LineSegmentClustering: added cluster id {}".format(cid))
+
                 # remove nodes from possibility:
-                newPossibleNodesList = [nd for nd in possibleNodesList if not nd in clusters[cid]]
-                possibleNodesList = newPossibleNodesList
+                new_possible_nodes_list = [nd for nd in possible_nodes_list if not nd in clusters[cid]]
+                possible_nodes_list = new_possible_nodes_list
                 cid += 1
-#       remove clusters with no variaty of trajectories
+
+#       TODO: remove clusters with no variaty of trajectories
 #        for cIndex, cluster in list(clusters.items()):
 #            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
 #            if len(trajIndexesSet) < self.MinLns:
@@ -132,18 +128,25 @@ class SegmentsClusterer:
 
         
     def eps_neighborhood_of_seg(self, Li):
-        '''
+        """
         Traclus article Definition 4
-        '''
-        matrixIndex = self.segmentsMatrix.segToMatrixInx(Li)
-        segmentsFrom3x3List = self.segmentsMatrix.getSegmentsFrom3x3(matrixIndex)
-        return [Lj for Lj in segmentsFrom3x3List if Li.myDistance(Lj) < self.eps] # used Gline's myDistance
+        :param Li: LSegment
+        :return: list of LSegments
+        """
+        matrix_index = self.segmentsMatrix.segToMatrixInx(Li)
+        #segmentsFrom3x3List = self.segmentsMatrix.getSegmentsFrom3x3(matrixIndex)
+        segments_around = self.segmentsMatrix.getSegmentsByEps(matrix_index)
+        return [Lj for Lj in segments_around if Li.myDistance(Lj) < self.eps] # used LLine's myDistance
+
+    def setEpsilon(self, eps):
+        self.eps = eps
+        self.segmentsMatrix.eps = eps
 
 
-    def plotClusters(self, axs, clusterList):   
-        '''
+    def plotClusters(self, axs, clusterList):
+        """
         shows in local xy coords
-        '''
+        """
         axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
         colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
         clusterProcessor = ClusterProcessor(self.MinLns) 
@@ -280,6 +283,8 @@ class SegmentsClusterer:
        
     
 class SegmentsMatrix:
+    resolution = 2.0
+
     def __init__(self, lsegments_list, eps):
         self.lsegmentList = lsegments_list
         '''
@@ -301,26 +306,29 @@ class SegmentsMatrix:
     
     
     def segToMatrixInx(self, lseg):
-        '''
+        """
         returns the index of the matrix the segment belongs to
-        '''
-        seg_end1_xy = lseg.end1 #self.projector.latLongToXY(seg[0][0], seg[0][1])
-        seg_end2_xy = lseg.end2 #self.projector.latLongToXY(seg[1][0], seg[1][1])
-        xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0
-        ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0
+        :param lseg: LSegment
+        :return: Index to the Matrix matching this lseg
+        """
+
+        seg_end1_xy = lseg.end1
+        seg_end2_xy = lseg.end2
+        xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0 # mean
+        ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0 # mean
         segMXY = (xm, ym)
         segMatrixIndex = self.segMXYToMatrixInx(segMXY)
         return segMatrixIndex
     
     def segMXYToMatrixInx(self, segMXY):
-        '''
+        """
         segMXY inx must be greater than originXY in both dimensions
-        '''
+        :param segMXY: middle of segment
+        :return: index
+        """
         mx, my = segMXY
-        i = int(mx / self.eps)
-        j = int(my / self.eps)
-#        i = int((mx - self.projector.originXY[0]) / self.eps)
-#        j = int((my - self.projector.originXY[1]) / self.eps)
+        i = int(mx / SegmentsMatrix.resolution)
+        j = int(my / SegmentsMatrix.resolution)
         return (i,j)
         
     def constructMatrix(self):
@@ -333,7 +341,33 @@ class SegmentsMatrix:
                 myMap[segMatrixIndex] = [seg]
                 
         self.spInxMap = myMap
-        
+
+    def getSegmentsByEps(self, spatial_index):
+        """
+        Uses eps, and the resolution in order to
+        return a list of possible LSegments which
+        are as close as eps to lines in the spatial_index slot.
+        :param spatial_index: 
+        :return: list of LSegments
+        """
+
+        i, j = spatial_index
+        if i < 0 or j < 0:
+            raise ValueError("Indices are not negative!")
+
+        # need to retun (2k+1)*(2k+1) slots around spatial_index
+        k = math.ceil(self.eps / SegmentsMatrix.resolution)
+
+        result = []
+        for ii in range(i - k, i + k + 1): #k back and k forw
+            for jj in range(j - k, j + k + 1): #k back and k forw
+                if ii < 0 or jj < 0:
+                    continue
+                if (ii,jj) in self.spInxMap:
+                    result += self.spInxMap[(ii,jj)]
+        return result
+
+
     def getSegmentsFrom3x3(self, spatialIndex):
         i,j = spatialIndex
         if i < 0 or j < 0:

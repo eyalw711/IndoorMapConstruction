@@ -21,18 +21,18 @@ class IndoorMapper:
         
     def run(self, axs, withPickle):
         print("IndoorMapper: run")
-        pickleName = "pickles//SegmentClusterer_csvName_{}_eps_{}_minlns_{}".format(\
-            self.csvName, self.eps, self.MinLns).replace(".", "_") + ".p"
+        pickle_cluseterer_name = "pickles//SegmentClusterer_csvName_{}_minlns_{}".format(\
+            self.csvName, self.MinLns).replace(".", "_") + ".p"
         start = time.time()
         pickle_success = True
         if withPickle:
             try:
-                with open(pickleName, "rb") as pickleFile:
+                with open(pickle_cluseterer_name, "rb") as pickleFile:
                     print("{}: Loading a pickle".format(time.time() - start))
                     clusterer = pickle.load(pickleFile)
             except Exception:
                 pickle_success = False  
-        if (not withPickle) or (withPickle and not pickle_success):
+        if (not withPickle) or (withPickle and not pickle_success): # all pickle data saved is unrelated to epsilon
             print("{}: Running without pickle".format(time.time() - start))
             print("{}: This is a long operation, please be patient...".format(time.time() - start))
             loader = TrajectoryCollectionCSVLoader()
@@ -57,9 +57,37 @@ class IndoorMapper:
             
             print("{}: SegmentsClusterer starting initActions...".format(time.time() - start))
             clusterer.initActions()
-            with open(pickleName, "wb") as pickleFile:
+
+            with open(pickle_cluseterer_name, "wb") as pickleFile:
                 pickle.dump(clusterer, pickleFile)
             print("Saved clusterer as a pickle file, I did a lot of work to get it!")
+
+        #############################################
+        #   From Now - Epsilon Related Operations   #
+        #############################################
+
+        clusterer.setEpsilon(self.eps)
+
+        pickle_graph_name = "pickles//graph_csvName_{}_eps_{}_minlns_{}".format(\
+            self.csvName, self.eps, self.MinLns).replace(".", "_") + ".p"
+
+        pickle_success = True
+        if withPickle:
+            try:
+                with open(pickle_graph_name, "rb") as pickleFile:
+                    print("{}: Loading a pickle".format(time.time() - start))
+                    graph = pickle.load(pickleFile)
+            except Exception:
+                pickle_success = False
+
+        if (not withPickle) or (withPickle and not pickle_success):
+            print("{}: Computing Direct Reachability Graph".format(time.time() - start))
+            clusterer.computeDirectReachabilityGraph()
+            with open(pickle_graph_name, "wb") as pickleFile:
+                pickle.dump(clusterer.directReachablityGraph, pickleFile)
+
+        else:
+            clusterer.directReachablityGraph = graph
 
         print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachablityGraph.nodes()),
               len(clusterer.directReachablityGraph.edges())))

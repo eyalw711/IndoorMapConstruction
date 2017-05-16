@@ -5,21 +5,15 @@ Created on Thu Apr 27 00:38:50 2017
 @author: Eyal
 """
 
-from matplotlib import pyplot as plt
 import numpy as np
 import matplotlib.cm as cm
 
 from shapely.geometry import LineString, GeometryCollection, Polygon, MultiPoint
 from shapely.geometry import Point as shapelyPoint
 
-# from shapely.ops import cascaded_union
-# from geopy.distance import vincenty, VincentyDistance
-# from geopy.distance import Point as gpt
-
 from IMCObjects import LLine
 from Projector import RotationalProjector
 import copy
-from itertools import chain
 import math
 import statistics
 
@@ -36,7 +30,7 @@ class ClusterProcessor:
         self.rotationalProjector = RotationalProjector()
 
     def plotMap(self, axs, polygonsAndReprTrajs):
-        ''' input is a zip of <polygon, traj> '''
+        """ input is a zip of <polygon, traj> """
 
         polygonsAndReprTrajs = list(polygonsAndReprTrajs)
         colors = iter(cm.rainbow(np.linspace(0, 1, len(polygonsAndReprTrajs))))
@@ -53,7 +47,7 @@ class ClusterProcessor:
             axs.plot(*reprTraj_xist_ylist_tuple, color=ccolor, linewidth=5)
 
     def process(self, clusterList):
-        ''' returns a zip of <polygon, traj> '''
+        """ returns a zip of <polygon, traj> """
         polygons = []  # polygon objects
         trajs = []  # tuple of (xlist,ylist)
         for i, cluster in enumerate(clusterList):
@@ -96,10 +90,11 @@ class ClusterProcessor:
         self.localLLinesList = localClusterLlineList
 
     def calcAverageDirection(self):
-        '''
+        """
         assume all LLines are with bearing 0 <= bearing < 180
-        returns xytup_start xytup_end
-        '''
+        :return: xytup_start xytup_end
+        """
+
         if len(self.localLLinesList) < 1:
             raise ValueError("calcMainDirection: cluster has to have segments!")
         origin = self.localLLinesList[0].end1  # (x,y) tuple
@@ -110,10 +105,10 @@ class ClusterProcessor:
             nextPosition_b = lline.llineTravel(currPosition, reverse=True)
 
             #TODO: check why this greedy operation didn't help
-            dist_a = math.sqrt((nextPosition_a[0] - currPosition[0]) ** 2 +
-                               (nextPosition_a[1] - currPosition[1]) ** 2)
-            dist_b = math.sqrt((nextPosition_b[0] - currPosition[0]) ** 2 +
-                               (nextPosition_b[1] - currPosition[1]) ** 2)
+            dist_a = math.sqrt((nextPosition_a[0] - origin[0]) ** 2 +
+                               (nextPosition_a[1] - origin[1]) ** 2)
+            dist_b = math.sqrt((nextPosition_b[0] - origin[0]) ** 2 +
+                               (nextPosition_b[1] - origin[1]) ** 2)
             currPosition = nextPosition_a if dist_a > dist_b else nextPosition_b
 
         totalWay = LLine(origin, currPosition)
@@ -150,10 +145,10 @@ class ClusterProcessor:
         return LLine(e1xytag, e2xytag)
 
     def calcRepresentativeLocal(self, gamma):
-        '''
+        """
         calculates the representative trajectory for the cluster
         currently loaded to the processor
-        '''
+        """
 
         def pltLLines(axs, llinesList, color='r'):
             for lline in llinesList:
@@ -225,12 +220,6 @@ class ClusterProcessor:
                 continue
 
             calculationsPool.append([xval, statistics.mean(yvals), (statistics.stdev(yvals))])
-
-        # experimental duplication of first and last
-        calculationsPool = [calculationsPool[0]] + \
-                           calculationsPool + [calculationsPool[-1]]
-        calculationsPool[0][0] -= 2
-        calculationsPool[-1][0] += 2
 
         # the 1.5 is experimental
         representative_and_walls = [(self.rotationalProjector.rotatedXYToXY(pe[0], pe[1]), \

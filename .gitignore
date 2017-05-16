@@ -1,2 +1,6 @@
 *.pyc
 *.ini
+*.idea*
+*ignore*
+*bank*
+*pickles/*

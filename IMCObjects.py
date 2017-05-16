@@ -378,6 +378,7 @@ class LSegment(LLine):
             0: unclassified
             1: signal
             2: noise
+            3: medium
         '''
         self.status = stat    
         self.trajIndex = trajIndex
