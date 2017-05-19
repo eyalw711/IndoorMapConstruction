@@ -6,8 +6,8 @@ given a data-base of pedestrians trajectories.
 Check the [Wiki](https://github.com/eyalw711/IndoorMapConstruction/wiki) for more details.
 
 ### Last Results:  
-Clustering of 21 simulated trajectories in a "W" shaped building:  
-![alt text](https://github.com/eyalw711/IndoorMapConstruction/blob/master/Docs/clustering_21Trajs_18eps_8MinLns.png "Clustering Result")
+Clustering simulated trajectories in a "W" shaped building:  
+![alt text](https://github.com/eyalw711/IndoorMapConstruction/blob/master/results/Mapping%20Simulated%20DB%20with%20eps%201-2%20minlns%205.png "Clustering Result")
 
 
 ### Installation Instructions:  
