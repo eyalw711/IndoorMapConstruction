@@ -5,12 +5,14 @@ Created on Sun Apr 30 18:19:19 2017
 @author: Eyal
 """
 import time
+import copy
 from TrajectoryMaker import TrajectoryCollectionCSVLoader
 from TraclusSegmenter import TrajectorySegmenter
 from TraclusClusterer import SegmentsClusterer
 from ClusterProcessor import ClusterProcessor
 import pickle
 from matplotlib import pyplot as plt
+
 
 class IndoorMapper:
     
@@ -66,7 +68,10 @@ class IndoorMapper:
         #   From Now - Epsilon Related Operations   #
         #############################################
 
-        clusterer.setEpsilon(self.eps)
+        opt_eps = clusterer.set_epsilon(self.eps)
+        # self.eps = opt_eps
+
+        # self.MinLns = int(self.eps) + 2
 
         pickle_graph_name = "pickles//graph_csvName_{}_eps_{}_minlns_{}".format(\
             self.csvName, self.eps, self.MinLns).replace(".", "_") + ".p"
@@ -84,13 +89,13 @@ class IndoorMapper:
             print("{}: Computing Direct Reachability Graph".format(time.time() - start))
             clusterer.computeDirectReachabilityGraph()
             with open(pickle_graph_name, "wb") as pickleFile:
-                pickle.dump(clusterer.directReachablityGraph, pickleFile)
+                pickle.dump(clusterer.directReachabilityGraph, pickleFile)
 
         else:
-            clusterer.directReachablityGraph = graph
+            clusterer.directReachabilityGraph = graph
 
-        print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachablityGraph.nodes()),
-              len(clusterer.directReachablityGraph.edges())))
+        print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachabilityGraph.nodes()),
+              len(clusterer.directReachabilityGraph.edges())))
         clustersDict = clusterer.LineSegmentClustering()
         print("{}: Clustering process ended. Got {} clusters.".format(time.time() - start, len(clustersDict.values())))
         
@@ -102,7 +107,9 @@ class IndoorMapper:
 
         print("{}: Plotting the clusters...".format(time.time() - start))
         axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
+        zip_for_map = copy.deepcopy(polygonsAndReprTrajs)
         processor.plotMap(axs, polygonsAndReprTrajs)
+        processor.make_map_from_zip_polygons_trajs(zip_for_map)
 
        # temp operation...
 #        clusterer.plotClusters(axs, list(clustersDict.values()))

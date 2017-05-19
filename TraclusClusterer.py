@@ -14,6 +14,7 @@ import matplotlib.cm as cm
 from ClusterProcessor import ClusterProcessor
 from Projector import EquirectangularProjector
 import math
+from scipy.optimize import basinhopping
 
 # for clustering
 from IMCObjects import Segment, Trajectory, LSegment
@@ -29,7 +30,7 @@ class SegmentsClusterer:
         self.eps = eps
         self.MinLns = MinLns
         self.segmentsMatrix = None
-        self.directReachablityGraph = None
+        self.directReachabilityGraph = None
         self.projector = None
     
     def initActions(self):
@@ -78,23 +79,23 @@ class SegmentsClusterer:
         :return: void
         """
 
-        self.directReachablityGraph = DiGraph() #Directed Graph
-        self.directReachablityGraph.add_nodes_from(self.lsegmentsList)
+        self.directReachabilityGraph = DiGraph() #Directed Graph
+        self.directReachabilityGraph.add_nodes_from(self.lsegmentsList)
         i = 0
-        for anode in self.directReachablityGraph.nodes():
+        for anode in self.directReachabilityGraph.nodes():
             i += 1
-            a_epsN = self.eps_neighborhood_of_seg(anode)
-            if len(a_epsN) < (self.MinLns)*0.707: # anode is not a core segment
-                anode.status = 2 # noise
+            a_epsN = self.eps_neighborhood_of_seg(anode, self.eps)
+            if len(a_epsN) < float(self.MinLns)*0.707:  # anode is not a core segment
+                anode.status = 2  # noise
                 continue
             elif len(a_epsN) < self.MinLns:
-                anode.status = 3 # medium
+                anode.status = 3  # medium
             else:    
-                anode.status = 1 # signal(core)
+                anode.status = 1  # signal(core)
             for bnode in a_epsN:
                 if anode is bnode:
                     continue
-                self.directReachablityGraph.add_edge(anode , bnode)
+                self.directReachabilityGraph.add_edge(anode , bnode)
     
     
     def LineSegmentClustering(self):
@@ -106,13 +107,13 @@ class SegmentsClusterer:
         """
         clusters = {}
         cid = 0
-        possible_nodes_list = list(self.directReachablityGraph.nodes())
+        possible_nodes_list = list(self.directReachabilityGraph.nodes())
         
         while len(possible_nodes_list) > 0:
             node = possible_nodes_list[0]
             possible_nodes_list = possible_nodes_list[1:]
             if node.status == 1:
-                clusters[cid] = list(descendants(self.directReachablityGraph, node)) + [node]
+                clusters[cid] = list(descendants(self.directReachabilityGraph, node)) + [node]
 
                 # remove nodes from possibility:
                 new_possible_nodes_list = [nd for nd in possible_nodes_list if not nd in clusters[cid]]
@@ -125,22 +126,52 @@ class SegmentsClusterer:
 #            if len(trajIndexesSet) < self.MinLns:
 #                del clusters[cIndex]
         return clusters
-
         
-    def eps_neighborhood_of_seg(self, Li):
+    def eps_neighborhood_of_seg(self, Li, vareps):
         """
         Traclus article Definition 4
         :param Li: LSegment
+        :param vareps: epsilon for distance measurement
         :return: list of LSegments
         """
         matrix_index = self.segmentsMatrix.segToMatrixInx(Li)
-        #segmentsFrom3x3List = self.segmentsMatrix.getSegmentsFrom3x3(matrixIndex)
-        segments_around = self.segmentsMatrix.getSegmentsByEps(matrix_index)
-        return [Lj for Lj in segments_around if Li.myDistance(Lj) < self.eps] # used LLine's myDistance
+        segments_around = self.segmentsMatrix.get_segments_by_eps(matrix_index, vareps)
+        return [Lj for Lj in segments_around if Li.myDistance(Lj) < vareps]  # used LLine's myDistance
 
-    def setEpsilon(self, eps):
+    def set_epsilon(self, eps):
         self.eps = eps
         self.segmentsMatrix.eps = eps
+
+    def calc_epsilon(self, eps):
+        """
+        finds optimal heuristic eps.
+        assumes the matrix is prepared.
+        :param eps: 
+        :return: 
+        """
+        print("TraclusClusterer: calculating heuristic epsilon")
+
+        def h(heps):
+            if type(heps) is np.ndarray:
+                heps = heps[0]
+            print("Starting a neighborhoods calc with {}".format(heps))
+            neighborhoods = [len(self.eps_neighborhood_of_seg(li, heps)) for li in self.lsegmentsList]
+            print("neighborhoods calc ended")
+            sum_neighborhoods = sum(neighborhoods)
+            ret = -sum((n/sum_neighborhoods) * math.log2(n/sum_neighborhoods) for n in neighborhoods)
+            print("for {} - value is {}".format(heps, ret))
+            return ret
+
+        # ret = basinhopping(h, x0, 8, stepsize=1.5)
+        # opt_eps = ret.x
+        guesses_and_results = [(guess, h(guess)) for guess in np.linspace(1, 1.2, 1)]
+        opt_eps, min_res = min(guesses_and_results, key=lambda x: x[1])
+
+        print("TraclusClusterer: heuristic eps = {}".format(opt_eps))
+        self.eps = opt_eps
+        self.segmentsMatrix.eps = opt_eps
+
+        return opt_eps
 
 
     def plotClusters(self, axs, clusterList):
@@ -247,7 +278,7 @@ class SegmentsClusterer:
         TODO: currently inefficient (read about R-Tree for optimization)
         '''
         try:
-            sp = shortest_path(self.directReachablityGraph, source = fromLine, target = line)
+            sp = shortest_path(self.directReachabilityGraph, source = fromLine, target = line)
             if len(sp)>0:
                 return True
             else:
@@ -261,7 +292,7 @@ class SegmentsClusterer:
         '''
         if any(self.isDirectlyDensityReachable(line, Lk) 
                 and self.isDirectlyDensityReachable(toLine, Lk) 
-                    for Lk in self.directReachablityGraph.nodes()):
+                    for Lk in self.directReachabilityGraph.nodes()):
             return True
         return False
     
@@ -277,7 +308,7 @@ class SegmentsClusterer:
             return False
         
         Maximality =  all(prod[1] in clusterListOfSegments for
-            prod in itertools.product(self.directReachablityGraph.nodes(), self.directReachablityGraph.nodes())
+            prod in itertools.product(self.directReachabilityGraph.nodes(), self.directReachabilityGraph.nodes())
             if prod[0] in clusterListOfSegments and self.isDensityReachable(prod[1], prod[0]))
         return Maximality
        
@@ -314,8 +345,8 @@ class SegmentsMatrix:
 
         seg_end1_xy = lseg.end1
         seg_end2_xy = lseg.end2
-        xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0 # mean
-        ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0 # mean
+        xm = (seg_end1_xy[0] + seg_end2_xy[0]) / 2.0  # mean
+        ym = (seg_end1_xy[1] + seg_end2_xy[1]) / 2.0  # mean
         segMXY = (xm, ym)
         segMatrixIndex = self.segMXYToMatrixInx(segMXY)
         return segMatrixIndex
@@ -342,12 +373,13 @@ class SegmentsMatrix:
                 
         self.spInxMap = myMap
 
-    def getSegmentsByEps(self, spatial_index):
+    def get_segments_by_eps(self, spatial_index, vareps):
         """
         Uses eps, and the resolution in order to
         return a list of possible LSegments which
         are as close as eps to lines in the spatial_index slot.
-        :param spatial_index: 
+        :param spatial_index:
+        :param vareps: eps for distance measurement
         :return: list of LSegments
         """
 
@@ -355,32 +387,15 @@ class SegmentsMatrix:
         if i < 0 or j < 0:
             raise ValueError("Indices are not negative!")
 
-        # need to retun (2k+1)*(2k+1) slots around spatial_index
-        k = math.ceil(self.eps / SegmentsMatrix.resolution)
+        # need to return (2k+1)*(2k+1) slots around spatial_index
+        k = math.ceil(vareps / SegmentsMatrix.resolution)
 
         result = []
-        for ii in range(i - k, i + k + 1): #k back and k forw
-            for jj in range(j - k, j + k + 1): #k back and k forw
+        for ii in range(i - k, i + k + 1):  # k back and k forward
+            for jj in range(j - k, j + k + 1):  # k back and k forward
                 if ii < 0 or jj < 0:
                     continue
-                if (ii,jj) in self.spInxMap:
+                if (ii, jj) in self.spInxMap:
                     result += self.spInxMap[(ii,jj)]
         return result
-
-
-    def getSegmentsFrom3x3(self, spatialIndex):
-        i,j = spatialIndex
-        if i < 0 or j < 0:
-            raise ValueError("Indices are not negative!")
-        
-        result = []
-        if spatialIndex in self.spInxMap:
-            for ii in range(i-1, i+2):
-                for jj in range(j-1, j+2):
-                    if ii < 0 or jj < 0:
-                        continue
-                    if (ii,jj) in self.spInxMap:
-                        result += self.spInxMap[(ii,jj)]
-        return result
-    
 

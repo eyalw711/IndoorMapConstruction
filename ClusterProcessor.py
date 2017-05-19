@@ -4,11 +4,14 @@ Created on Thu Apr 27 00:38:50 2017
 
 @author: Eyal
 """
-
+from clyent import color
+from descartes import PolygonPatch
+from matplotlib import pyplot as plt
 import numpy as np
 import matplotlib.cm as cm
+from networkx import Graph
 
-from shapely.geometry import LineString, GeometryCollection, Polygon, MultiPoint
+from shapely.geometry import LineString, GeometryCollection, Polygon, MultiPoint, MultiPolygon
 from shapely.geometry import Point as shapelyPoint
 
 from IMCObjects import LLine
@@ -16,6 +19,8 @@ from Projector import RotationalProjector
 import copy
 import math
 import statistics
+import itertools
+
 
 
 class ClusterProcessor:
@@ -86,6 +91,94 @@ class ClusterProcessor:
 
         return zip(polygons, trajs)
 
+    def make_map_from_zip_polygons_trajs(self, polys_repr_trajs):
+        """ input is a zip of <polygon, traj> """
+
+        map_poly = MultiPolygon()
+        polys_repr_trajs = list(polys_repr_trajs)
+        polys_repr_trajs.sort(key=lambda tup: tup[0].area, reverse=True)
+
+        polys, trajs = zip(*polys_repr_trajs)  # traj is a (xlist, ylist)
+
+        grp = Graph()
+
+        def dist(x1, y1, x2, y2):
+            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+        # in this loop we pop clusters and attach them to map
+        while len(polys) > 0:
+            # pop
+            poly, traj = polys[0], trajs[0]  # traj is a (xlist, ylist)
+            polys, trajs = polys[1:], trajs[1:]
+
+            xytups = list(zip(*traj))
+            is_intersect = poly.intersects(map_poly)
+            is_contained = map_poly.contains(poly)
+            if is_contained:
+                print("contained special case, moving on for now...")
+                continue
+
+            if is_intersect:
+                intersection_of_clusters = poly.intersection(map_poly)
+
+                if type(intersection_of_clusters) is Polygon:  # TODO: should be case partly intersects
+                    # find closest two points
+                    self.add_polygon_to_map(dist, grp, intersection_of_clusters, xytups)
+
+                elif type(intersection_of_clusters) is MultiPolygon:
+                    print("MultiPolygon intersection!")
+                    for polyg in intersection_of_clusters:
+                        self.add_polygon_to_map(dist, grp, polyg, xytups)
+                else:
+                    print("the type of the intersection was {}".format(type(intersection_of_clusters)))
+
+            else:  # doesn't intersect
+                # add all nodes of this cluster to the graph
+                grp.add_nodes_from(xytups)
+
+                # add all edges of cluster to the map
+                for i, tup in enumerate(xytups):
+                    if i == len(xytups) - 1:
+                        break
+                    grp.add_edge(tup, xytups[i + 1])
+
+            map_poly = map_poly.union(poly)
+
+        fig, axs = plt.subplots()
+        for polygon in map_poly:
+            x, y = polygon.exterior.xy
+            axs.plot(x, y)
+            patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
+            axs.add_patch(patch)
+        for edge in grp.edges():
+            xs, ys = list(zip(*edge))
+            axs.plot(xs, ys, color="b")
+        plt.show()
+
+    def add_polygon_to_map(self, dist, grp, intersection_of_clusters, xytups):
+        x, y = intersection_of_clusters.exterior.xy
+        mean_point = sum(x) / len(x), sum(y) / len(y)
+        # find closest point in poly's traj
+        pts_and_distances = [(xytup, dist(*xytup, *mean_point)) for xytup in xytups]
+        min_pt_and_dist = min(pts_and_distances, key=lambda pt: pt[1])
+        # find closest point already in graph
+        pts_and_distances2 = [(xytup, dist(*xytup, *mean_point)) for xytup in grp.nodes()]
+        min_pt_and_dist2 = min(pts_and_distances2, key=lambda pt: pt[1])
+        # add intersection point to map
+        grp.add_node(mean_point)
+        # add all nodes of this cluster to the graph
+        grp.add_nodes_from(xytups)
+        # add all edges of cluster to the map
+        for i, tup in enumerate(xytups):
+            if i == len(xytups) - 1:
+                break
+            grp.add_edge(tup, xytups[i + 1])
+
+        # connect middle point to new cluster
+        grp.add_edge(min_pt_and_dist[0], mean_point)
+        # connect existing graph to middle point
+        grp.add_edge(min_pt_and_dist2[0], mean_point)
+
     def loadLocalCluster_lsegList(self, localClusterLlineList):
         self.localLLinesList = localClusterLlineList
 
@@ -104,7 +197,7 @@ class ClusterProcessor:
             nextPosition_a = lline.llineTravel(currPosition)
             nextPosition_b = lline.llineTravel(currPosition, reverse=True)
 
-            #TODO: check why this greedy operation didn't help
+            # TODO: check why this greedy operation didn't help
             dist_a = math.sqrt((nextPosition_a[0] - origin[0]) ** 2 +
                                (nextPosition_a[1] - origin[1]) ** 2)
             dist_b = math.sqrt((nextPosition_b[0] - origin[0]) ** 2 +

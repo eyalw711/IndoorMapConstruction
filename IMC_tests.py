@@ -23,7 +23,7 @@ def testMapper():
     fig, axs = plt.subplots(1, 2)
     fig.suptitle("Mapping {} with eps = {} minLns = {}".format(sceneName, eps, minLns))
     axs[0].set_title('Simulated Building')
-    bd = builderfunc();
+    bd = builderfunc()
     bd.plot(axs[0])
     axs[1].set_title('Mapping Result')
     IndoorMapper.testMapperOn(axs[1], sceneName, eps, minLns)
@@ -105,9 +105,9 @@ def testTrajectoryClustering(withPickle=False):
             clusterer = pickle.load(pickleFile)
 
     print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(
-        clusterer.directReachablityGraph.nodes()),
+        clusterer.directReachabilityGraph.nodes()),
                                                                                       len(
-                                                                                          clusterer.directReachablityGraph.edges())))
+                                                                                          clusterer.directReachabilityGraph.edges())))
     clusters = clusterer.LineSegmentClustering()
     print("{}: Clustering process ended.".format(time.time() - start))
 
@@ -130,9 +130,9 @@ def testTrajectoryClusteringWithPickle():
         clusterer = pickle.load(pickleFile)
 
     print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(
-        clusterer.directReachablityGraph.nodes()),
+        clusterer.directReachabilityGraph.nodes()),
                                                                                       len(
-                                                                                          clusterer.directReachablityGraph.edges())))
+                                                                                          clusterer.directReachabilityGraph.edges())))
     clusters = clusterer.LineSegmentClustering()
     print("{}: Clustering process ended. Number of clusters is {}".format(time.time() - start, len(clusters)))
 
