@@ -105,9 +105,7 @@ def testTrajectoryClustering(withPickle=False):
             clusterer = pickle.load(pickleFile)
 
     print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(
-        clusterer.directReachabilityGraph.nodes()),
-                                                                                      len(
-                                                                                          clusterer.directReachabilityGraph.edges())))
+        clusterer.directReachabilityGraph.nodes()), len(clusterer.directReachabilityGraph.edges())))
     clusters = clusterer.LineSegmentClustering()
     print("{}: Clustering process ended.".format(time.time() - start))
 

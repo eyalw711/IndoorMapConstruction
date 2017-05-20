@@ -4,7 +4,7 @@ Created on Thu Apr 27 00:38:50 2017
 
 @author: Eyal
 """
-from clyent import color
+
 from descartes import PolygonPatch
 from matplotlib import pyplot as plt
 import numpy as np
@@ -34,7 +34,8 @@ class ClusterProcessor:
         self.MinLns = MinLns
         self.rotationalProjector = RotationalProjector()
 
-    def plotMap(self, axs, polygonsAndReprTrajs):
+
+    def plot_clusters_and_reprs(self, axs, polygonsAndReprTrajs):
         """ input is a zip of <polygon, traj> """
 
         polygonsAndReprTrajs = list(polygonsAndReprTrajs)
@@ -92,7 +93,12 @@ class ClusterProcessor:
         return zip(polygons, trajs)
 
     def make_map_from_zip_polygons_trajs(self, polys_repr_trajs):
-        """ input is a zip of <polygon, traj> """
+        """
+        makes a zip of polys and reprs into a tuple of
+        (map polygon, underlying routing graph)
+        :param polys_repr_trajs: a zip of polys and reprs
+        :return: (map polygon, underlying routing graph)
+        """
 
         map_poly = MultiPolygon()
         polys_repr_trajs = list(polys_repr_trajs)
@@ -101,49 +107,56 @@ class ClusterProcessor:
         polys, trajs = zip(*polys_repr_trajs)  # traj is a (xlist, ylist)
 
         grp = Graph()
+        bridges = []
 
-        def dist(x1, y1, x2, y2):
-            return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-        # in this loop we pop clusters and attach them to map
-        while len(polys) > 0:
-            # pop
-            poly, traj = polys[0], trajs[0]  # traj is a (xlist, ylist)
-            polys, trajs = polys[1:], trajs[1:]
-
-            xytups = list(zip(*traj))
-            is_intersect = poly.intersects(map_poly)
-            is_contained = map_poly.contains(poly)
-            if is_contained:
-                print("contained special case, moving on for now...")
+        # building bridges inside this loop
+        for poly_traj_tup_a, poly_traj_tup_b in itertools.combinations(polys_repr_trajs, 2):
+            poly_a, poly_b = poly_traj_tup_a[0], poly_traj_tup_b[0]
+            traj_a, traj_b = poly_traj_tup_a[1], poly_traj_tup_b[1]
+            is_intersect = poly_a.intersects(poly_b)
+            is_a_contained = poly_b.contains(poly_a)
+            is_b_contained = poly_a.contains(poly_b)
+            if is_a_contained or is_b_contained:
+                print("special containment case - deal with later")
                 continue
-
             if is_intersect:
-                intersection_of_clusters = poly.intersection(map_poly)
+                intersection_of_clusters = poly_a.intersection(poly_b)
 
-                if type(intersection_of_clusters) is Polygon:  # TODO: should be case partly intersects
-                    # find closest two points
-                    self.add_polygon_to_map(dist, grp, intersection_of_clusters, xytups)
+                if type(intersection_of_clusters) is Polygon:  # Partial intersection
+                    bridge = ClusterProcessor.bridge(traj_a, traj_b, intersection_of_clusters)
+                    bridges.append(bridge)
 
                 elif type(intersection_of_clusters) is MultiPolygon:
-                    print("MultiPolygon intersection!")
                     for polyg in intersection_of_clusters:
-                        self.add_polygon_to_map(dist, grp, polyg, xytups)
+                        bridge = ClusterProcessor.bridge(traj_a, traj_b, polyg)
+                        bridges.append(bridge)
+
                 else:
                     print("the type of the intersection was {}".format(type(intersection_of_clusters)))
 
-            else:  # doesn't intersect
-                # add all nodes of this cluster to the graph
-                grp.add_nodes_from(xytups)
+        # building map:
+        for poly_traj_tup in polys_repr_trajs:
+            poly = poly_traj_tup[0]
+            traj = poly_traj_tup[1]
 
-                # add all edges of cluster to the map
-                for i, tup in enumerate(xytups):
-                    if i == len(xytups) - 1:
-                        break
-                    grp.add_edge(tup, xytups[i + 1])
-
+            # adding poly to map
             map_poly = map_poly.union(poly)
 
+            # adding trajectory to map graph
+            xytups = list(zip(*traj))
+            grp.add_nodes_from(xytups)
+
+            # add all edges of cluster to the map
+            for i, tup in enumerate(xytups):
+                if i == len(xytups) - 1:
+                    break
+                grp.add_edge(tup, xytups[i + 1])
+
+        for a, m, b in bridges:
+            grp.add_node(m)
+            grp.add_edges_from([(a,m), (m,b)])
+
+        # optional plotting:
         fig, axs = plt.subplots()
         for polygon in map_poly:
             x, y = polygon.exterior.xy
@@ -155,29 +168,34 @@ class ClusterProcessor:
             axs.plot(xs, ys, color="b")
         plt.show()
 
-    def add_polygon_to_map(self, dist, grp, intersection_of_clusters, xytups):
-        x, y = intersection_of_clusters.exterior.xy
-        mean_point = sum(x) / len(x), sum(y) / len(y)
-        # find closest point in poly's traj
-        pts_and_distances = [(xytup, dist(*xytup, *mean_point)) for xytup in xytups]
-        min_pt_and_dist = min(pts_and_distances, key=lambda pt: pt[1])
-        # find closest point already in graph
-        pts_and_distances2 = [(xytup, dist(*xytup, *mean_point)) for xytup in grp.nodes()]
-        min_pt_and_dist2 = min(pts_and_distances2, key=lambda pt: pt[1])
-        # add intersection point to map
-        grp.add_node(mean_point)
-        # add all nodes of this cluster to the graph
-        grp.add_nodes_from(xytups)
-        # add all edges of cluster to the map
-        for i, tup in enumerate(xytups):
-            if i == len(xytups) - 1:
-                break
-            grp.add_edge(tup, xytups[i + 1])
+        return map_poly, grp
 
-        # connect middle point to new cluster
-        grp.add_edge(min_pt_and_dist[0], mean_point)
-        # connect existing graph to middle point
-        grp.add_edge(min_pt_and_dist2[0], mean_point)
+    def dist(x1, y1, x2, y2):
+        return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    def bridge(traj_a, traj_b, polyg):
+        """
+        gets two trajectories from two clusters,
+        and returns 3 points of a short bridge between them.
+        :param traj_a: trajectory of cluster a
+        :param traj_b: trajectory of cluster b
+        :param polyg: the intersection of poly_a and poly_b
+        :return: (pta, meanp, ptb)
+        """
+        ptsa = list(zip(*traj_a))
+        ptsb = list(zip(*traj_b))
+
+        x, y = polyg.exterior.xy
+        mean_point = sum(x) / len(x), sum(y) / len(y)
+
+        # find closest point in traj_a
+        pts_and_distances = [(xytup, ClusterProcessor.dist(*xytup, *mean_point)) for xytup in ptsa]
+        min_pt_and_dist_a = min(pts_and_distances, key=lambda pt: pt[1])
+        # find closest point in traj_b
+        pts_and_distances = [(xytup, ClusterProcessor.dist(*xytup, *mean_point)) for xytup in ptsb]
+        min_pt_and_dist_b = min(pts_and_distances, key=lambda pt: pt[1])
+
+        return (min_pt_and_dist_a[0], mean_point, min_pt_and_dist_b[0])
 
     def loadLocalCluster_lsegList(self, localClusterLlineList):
         self.localLLinesList = localClusterLlineList

@@ -46,7 +46,7 @@ class EquirectangularProjector:
         return (x,y)
         
     def XYToLatLong(self, x, y):
-        latRad = (y + self.originXY[1])/ EquirectangularProjector.radius
+        latRad = (y + self.originXY[1])/EquirectangularProjector.radius
         lat = math.degrees(latRad)
         if not (-90 <= lat <= 90):
             raise ValueError("Lat conversions are out of range")
