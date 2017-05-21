@@ -92,7 +92,7 @@ class ClusterProcessor:
 
         return zip(polygons, trajs)
 
-    def make_map_from_zip_polygons_trajs(self, polys_repr_trajs):
+    def make_map_from_zip_polygons_trajs(self, axs, polys_repr_trajs):
         """
         makes a zip of polys and reprs into a tuple of
         (map polygon, underlying routing graph)
@@ -150,24 +150,25 @@ class ClusterProcessor:
             for i, tup in enumerate(xytups):
                 if i == len(xytups) - 1:
                     break
-                grp.add_edge(tup, xytups[i + 1])
+                grp.add_edge(tup, xytups[i+1], weight=ClusterProcessor.dist(*tup, *xytups[i+1]))
 
         for a, m, b in bridges:
             grp.add_node(m)
-            grp.add_edges_from([(a,m), (m,b)])
+            grp.add_edge(a, m, weight=ClusterProcessor.dist(*a, *m))
+            grp.add_edge(m, b, wieght=ClusterProcessor.dist(*m, *b))
 
         # optional plotting:
-        fig, axs = plt.subplots()
-        for polygon in map_poly:
-            x, y = polygon.exterior.xy
-            axs.plot(x, y)
-            patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
-            axs.add_patch(patch)
-        for edge in grp.edges():
-            xs, ys = list(zip(*edge))
-            axs.plot(xs, ys, color="b")
-        plt.show()
-
+        # fig, axs = plt.subplots()
+        if axs != None:
+            for polygon in map_poly:
+                x, y = polygon.exterior.xy
+                axs.plot(x, y)
+                patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
+                axs.add_patch(patch)
+            for edge in grp.edges():
+                xs, ys = list(zip(*edge))
+                axs.plot(xs, ys, color="b")
+            plt.show()
         return map_poly, grp
 
     def dist(x1, y1, x2, y2):

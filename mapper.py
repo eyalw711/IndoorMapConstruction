@@ -107,10 +107,11 @@ class IndoorMapper:
         polygonsAndReprTrajs = processor.process(clustersDict.values())
 
         print("{}: Plotting the clusters...".format(time.time() - start))
-        axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
+        if axs != None:
+            axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
         zip_for_map = copy.deepcopy(polygonsAndReprTrajs)
-        processor.plot_clusters_and_reprs(axs, polygonsAndReprTrajs)
-        map_poly, routing_graph = processor.make_map_from_zip_polygons_trajs(zip_for_map)
+        # processor.plot_clusters_and_reprs(axs, polygonsAndReprTrajs)
+        map_poly, routing_graph = processor.make_map_from_zip_polygons_trajs(axs, zip_for_map)
 
         geojson_map_string, geo_routing_graph = IndoorMapper.convert_local_to_geo(map_poly, routing_graph, clusterer.projector)
 
@@ -120,6 +121,7 @@ class IndoorMapper:
 
         print("{}: Plot ended.".format(time.time() - start))
         print("{}: Test ended.".format(time.time() - start))
+        return map_poly, routing_graph
 
     def convert_local_to_geo(map_poly, routing_graph, projector):
         f_local_to_geo = lambda tup: projector.XYToLatLong(*tup)[::-1]
