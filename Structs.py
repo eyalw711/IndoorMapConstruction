@@ -2,6 +2,7 @@ from IMCObjects import GPoint
 from Utility import CircleUtility
 import math
 from sympy.geometry import Circle, Point
+from matplotlib import pyplot as plt
 
 
 class Responder(GPoint):
@@ -9,7 +10,7 @@ class Responder(GPoint):
         GPoint.__init__(self, lat, long)
         self.X = x
         self.Y = y
-        self.Mac = mac
+        self.Mac = mac.lower()
         self.Floor = floor
 
     def __repr__(self):
@@ -62,17 +63,34 @@ class RangeSet:
         return dic
 
 
+
 if __name__ == "__main__":
     r1 = Responder(0, 0, 0, 0, "a", 2)
-    #r2 = Responder(0, 0, 0, 2, "b", 2)
-    r3 = Responder(0, 0, 2, 0, "c", 2)
+    r2 = Responder(0, 0, 2, 0, "b", 2)
+    r3 = Responder(0, 0, 1, 1, "c", 2)
 
-    range2 = Range(r1,0 ,1)
+    range2 = Range(r2, 0, 1)
     range3 = Range(r3, 0, 1)
-    #range1 = Range(r1, 0, math.sqrt(8))
+    range1 = Range(r1, 0, 1)
 
-    rangeSet = [range2, range3]
+    rangeSet = [range1, range2, range3]
     rs = RangeSet(rangeSet)
-    print(rs.CreateCyclesList())
-    print(rs.CalculateIntersectionMatrix())
+    cs = rs.CreateCyclesList()
+    print(cs)
+    dic = rs.CalculateIntersectionMatrix()
+    maxVal = 0
+    point = None
+    for key, val in dic.items():
+        if val >= maxVal:
+            maxVal = val
+            point = key
+
+    print(point)
+
+    fig, axs = plt.subplots(1, 1)
+    CircleUtility.DrawCircles(axs,cs)
+    axs.plot([5] , [5])
+    axs.plot([-5], [-5])
+    axs.plot(point[0], point[1],'ro')
+    plt.show()
 

@@ -1,5 +1,6 @@
 from sympy.geometry import Circle, Point
-
+from matplotlib import pyplot as plt
+import random
 
 class CircleUtility:
     @staticmethod
@@ -13,6 +14,18 @@ class CircleUtility:
     @staticmethod
     def circleFactory(x, y, r):
         return Circle(Point(x, y), r)
+
+    @staticmethod
+    def DrawCircles(ax, circles):
+        for c in circles:
+            assert (isinstance(c, Circle))
+            c1 = plt.Circle((c.center.x, c.center.y), c.radius, color=CircleUtility.GetRandomRGBA(), fill=False)
+            ax.add_artist(c1)
+
+    @staticmethod
+    def GetRandomRGBA():
+        return random.uniform(0, 1), random.uniform(0, 1), random.uniform(0, 1)
+
 
 if __name__ == "__main__":
     circleUtility = CircleUtility()
