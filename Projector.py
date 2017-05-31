@@ -57,7 +57,7 @@ class EquirectangularProjector:
         long = math.degrees(longRad)
         if not (-180 <= long <= 180):
             raise ValueError("Long conversions are out of range")
-        return (lat, long)
+        return lat, long
 
 
 # return (math.degrees((y+self.originXY[1])/ EquirectangularProjector.radius) ,\
