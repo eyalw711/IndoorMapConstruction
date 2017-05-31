@@ -3,7 +3,7 @@ from matplotlib.widgets import Button
 from mapper import IndoorMapper
 from descartes import PolygonPatch
 import networkx as nx
-
+from shapely.geometry import Polygon
 
 class Router(object):
 
@@ -103,10 +103,16 @@ class Demo:
         self.router.select_destination(event)
 
     def run(self):
-        for polygon in self.router.map_poly:
-            x, y = polygon.exterior.xy
+        if type(self.router.map_poly) is not Polygon:
+            for polygon in self.router.map_poly:
+                x, y = polygon.exterior.xy
+                self.axs.plot(x, y)
+                patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
+                self.axs.add_patch(patch)
+        else:
+            x, y = self.router.map_poly.exterior.xy
             self.axs.plot(x, y)
-            patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
+            patch = PolygonPatch(self.router.map_poly, alpha=0.5, zorder=2)
             self.axs.add_patch(patch)
 
         xs = list(map(lambda nd: nd[0], self.router.routing_graph.nodes()))
@@ -119,7 +125,7 @@ class Demo:
         plt.show()
 
 
-mapper = IndoorMapper('KfarSaba', 1.2, 5)
+mapper = IndoorMapper('TauTrajDump', 5, 3)
 map_poly, graph = mapper.run(None, True)
 d = Demo(map_poly, graph)
 d.run()
