@@ -18,7 +18,7 @@ from Projector import EquirectangularProjector
 import gmplot
 from BaruchCode import trilateration
 from Utility import CircleUtility
-
+from GoogleMapsTool import GoogleMapsConfig, GoogleMapFactory
 
 class ResponderLoader:
     def __init__(self, fileName, floor):
@@ -54,23 +54,29 @@ class ResponderLoader:
 
 
 class RangeLoader:
-    def __init__(self, fileName, respondersMacList, measurmentInCycle=43):
+    def __init__(self, fileName, respondersMacList, measurmentInCycle=43, minValidResponderInFix=5, floor=1):
         self.FileName = fileName
         self.RespondersMacList = respondersMacList
         # Collection of type LightRangeInfo
         self.RangeCollection = []
         self.NumOfMeasuInCycle = measurmentInCycle
+        self.MinValidRespondersInFix = minValidResponderInFix
+        self.Floor = floor
 
-    def LoadRanges(self):
-        data = pd.read_csv('data//' + self.FileName + '.csv')
+    def LoadRanges(self, detaliedLog=False):
+        data = pd.read_csv('data//Floor' + str(self.Floor) + '//' + self.FileName + '.csv')
         internal = []
+        filterCnt = 0
         for index, row in data.iterrows():
             if index != 0 and index % self.NumOfMeasuInCycle == 0:
-                print("{} valid ranges was found".format(len(internal)))
-                if len(internal) >= 3:
+                if detaliedLog:
+                    print("{} valid ranges was found".format(len(internal)))
+                if len(internal) >= self.MinValidRespondersInFix:
                     self.RangeCollection.append(internal)
                 else:
-                    print("Dropping group due to not enough valid measurments")
+                    filterCnt += 1
+                    if detaliedLog:
+                        print("Dropping group due to not enough valid measurments")
 
                 internal = []
             status = row['status']
@@ -78,11 +84,16 @@ class RangeLoader:
             if (status == "SUCCESS") and (r >= 0) and row['mac'] in self.RespondersMacList:
                 internal.append(LightRangeInfo(row['mac'], row['time'], row['range']))
 
-        if len(internal) > 0:
-            print("{} valid ranges was found".format(len(internal)))
+        if len(internal) >= self.MinValidRespondersInFix:
+            if detaliedLog:
+                print("{} valid ranges was found".format(len(internal)))
             self.RangeCollection.append(internal)
+        else:
+            filterCnt += 1
+            if detaliedLog:
+                print("Dropping group due to not enough valid measurments")
 
-        print("{} fixes was found".format(len(self.RangeCollection)))
+        print("{} fixes was found. {} was filtered due to not enough valid measurments".format(len(self.RangeCollection),filterCnt))
 
     def DumpRanges(self):
         for l in self.RangeCollection:
@@ -171,7 +182,7 @@ class LocationEngine:
 
     def LoadRangeFile(self, fileName):
         mac_respondersList = [r.Mac for r in self.ResponderLoader.RespondersCollection]
-        rangeLoader = RangeLoader(fileName, mac_respondersList, self.EngineConfig.NumOfMeasurmentsInCycle)
+        rangeLoader = RangeLoader(fileName, mac_respondersList, self.EngineConfig.NumOfMeasurmentsInCycle, self.EngineConfig.MinRangesInFix, self.EngineConfig.Floor)
         rangeLoader.LoadRanges()
         return rangeLoader
 
@@ -217,18 +228,17 @@ class LocationEngine:
         axs.plot(self.xLoc, self.yLoc, 'ro', color=color)
 
     def PlotLocationToGoogleMaps(self, fileName = "Range_GMAP.html"):
-        print("Starting generate Google maps plot")
-        gomap = gmplot.GoogleMapPlotter(self.LatLoc[0], self.LongLoc[0], 20)
-        gomap.scatter(self.LatLoc, self.LongLoc, marker=False, size=0.5)
-        gomap.draw(fileName)
+        googleMapsConfig = GoogleMapsConfig(self.LatLoc,self.LongLoc,fileName)
+        GoogleMapFactory.GenerateMap(googleMapsConfig)
 
 
 class LocationEngineConfig:
-    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle):
+    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle, minRangesInFix=3):
         self.ReponderFileName = responderFileName
         self.LocationFileNamesSet = locationFileNames
         self.NumOfMeasurmentsInCycle = numberOfRespondersInCycle
         self.Floor = floor
+        self.MinRangesInFix = minRangesInFix
 
 
 def Run(fileName, axs, LAT, LONG):
@@ -307,10 +317,11 @@ def Run(fileName, axs, LAT, LONG):
     axs.plot(-20, -20)
 
 
-def main():
-    fig, axs = plt.subplots(1, 1)
+def RunEngine(configuration, axs):
+    assert isinstance(configuration,LocationEngineConfig)
+    axs.set_title("Min Range in Fix {}".format(configuration.MinRangesInFix))
 
-    Engine = LocationEngine(LocationEngineConfig("Respodenrs", 2, ["RangesLabs", "RangesLobby", "RangesClasses"], 43))
+    Engine = LocationEngine(configuration)
     Engine.InitEngine()
     Engine.PlotResponders(axs)
     Engine.LoadRanges()
@@ -319,25 +330,30 @@ def main():
     Engine.PlotLocationToGoogleMaps()
     Engine.DumpTrajCsv()
 
-    plt.grid(True)
-    plt.show()
-
     return
 
-    LAT = []
-    LONG = []
+
+class FixFactory:
+    @staticmethod
+    def Generate():
+        main()
 
 
+def main():
+    fig, axs = plt.subplots(1, 2)
 
-    Run("RangesLobby", axs, LAT, LONG)
-    Run("RangesClasses", axs, LAT, LONG)
-    Run("RangesLabs", axs, LAT, LONG)
-    plt.grid(True)
+    ''', "RangesLobby", "RangesClasses"'''
+#    Engine = LocationEngine(LocationEngineConfig("Respodenrs", 2, ["RangesLabs", "RangesLobby", "RangesClasses"], 43))
+    # RunEngine(LocationEngineConfig("Respodenrs", 2, ["Labs1", "Labs2"], 16, 3))
+
+    RangeFileList = ["RangeFloor1", "RangeFloor1_1","RangeFloor1_2","RangeFloor1_3", "RangeFloor1_4", "RangeFloor1_5", "RangeFloor1_6"]
+    # RangeFileList = ["RangeFloor1_4", "RangeFloor1_5", "RangeFloor1_6"]
+
+    #RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3), axs[0])
+    RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3), axs[1])
+    axs[0].grid(True)
+    axs[1].grid(True)
     plt.show()
-
-    gmap = gmplot.GoogleMapPlotter(LAT[0], LONG[0], 20)
-    gmap.scatter(LAT, LONG, marker=False, size=0.5)
-    gmap.draw("Range_{}_GMAP.html".format(0))
 
 if __name__ == "__main__":
     main()

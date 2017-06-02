@@ -4,6 +4,7 @@ from mapper import IndoorMapper
 from descartes import PolygonPatch
 import networkx as nx
 from shapely.geometry import Polygon
+from ResponderLoader import FixFactory
 
 class Router(object):
 
@@ -125,7 +126,16 @@ class Demo:
         plt.show()
 
 
-mapper = IndoorMapper('TauTrajDump', 5, 3)
-map_poly, graph = mapper.run(None, True)
-d = Demo(map_poly, graph)
-d.run()
+def main():
+    print("Genrating Fixes")
+    FixFactory.Generate()
+
+    print("Starting IndoorMappingAlgorithm")
+    mapper = IndoorMapper('TauTrajDump', 5, 3)
+    map_poly, graph = mapper.run(None, True)
+    d = Demo(map_poly, graph)
+    d.run()
+
+
+if __name__ == "__main__":
+    main()
