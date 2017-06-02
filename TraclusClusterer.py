@@ -22,8 +22,8 @@ from networkx import DiGraph, shortest_path, descendants
 from networkx import exception as nxe
 import itertools
 
+
 class SegmentsClusterer:
-    
     def __init__(self, segments_list_of_trajectory_collection, eps, MinLns):
         self.segmentsList = segments_list_of_trajectory_collection
         self.lsegmentsList = None
@@ -32,46 +32,46 @@ class SegmentsClusterer:
         self.segmentsMatrix = None
         self.directReachabilityGraph = None
         self.projector = None
-    
+
     def initActions(self):
         print("InitActions of SegmentsClusterer:")
-        
+
         print("Starting Matrix' projector...")
         self.startMyProjector()
-        
+
         print("Convert all segments to local xy")
         self.convertSegmentsToLocalXY()
-        
+
         # TODO: debug   #########
         if False:
             fig, axs = plt.subplots()
             self.plotAllLocalSegments(axs)
-        
+
         print("New instance of SegmentsMatrix...")
         self.segmentsMatrix = SegmentsMatrix(self.lsegmentsList, self.eps)
-        
+
         print("Constructing Matrix...")
         self.segmentsMatrix.constructMatrix()
-        
+
         print("Matrix constructed!")
-#        for inx, val in self.segmentsMatrix.spInxMap.items():
-#            print("{}: {} items".format(inx, len(val)))
+        #        for inx, val in self.segmentsMatrix.spInxMap.items():
+        #            print("{}: {} items".format(inx, len(val)))
 
         print("SegmentsClusterer initialization is complete!")
-    
+
     def plotAllLocalSegments(self, axs):
         for gseg in self.lsegmentsList:
             axs.plot([gseg.end1[0], gseg.end2[0]], [gseg.end1[1], gseg.end2[1]])
-            
+        plt.show()
+
     def startMyProjector(self):
         self.projector = EquirectangularProjector(self.segmentsList)
-        
+
     def convertSegmentsToLocalXY(self):
         self.lsegmentsList = [LSegment(self.projector.latLongToXY(gseg.end1[0], gseg.end1[1]),
                                        self.projector.latLongToXY(gseg.end2[0], gseg.end2[1]),
                                        gseg.status, gseg.trajIndex) for gseg in self.segmentsList]
-        
-        
+
     def computeDirectReachabilityGraph(self):
         """
         an edge in the graph v1->v2 tells us that v2 is dirReachable from v1
@@ -79,25 +79,24 @@ class SegmentsClusterer:
         :return: void
         """
 
-        self.directReachabilityGraph = DiGraph() #Directed Graph
+        self.directReachabilityGraph = DiGraph()  # Directed Graph
         self.directReachabilityGraph.add_nodes_from(self.lsegmentsList)
         i = 0
         for anode in self.directReachabilityGraph.nodes():
             i += 1
             a_epsN = self.eps_neighborhood_of_seg(anode, self.eps)
-            if len(a_epsN) < float(self.MinLns)*0.707:  # anode is not a core segment
+            if len(a_epsN) < float(self.MinLns) * 0.707:  # anode is not a core segment
                 anode.status = 2  # noise
                 continue
             elif len(a_epsN) < self.MinLns:
                 anode.status = 3  # medium
-            else:    
+            else:
                 anode.status = 1  # signal(core)
             for bnode in a_epsN:
                 if anode is bnode:
                     continue
-                self.directReachabilityGraph.add_edge(anode , bnode)
-    
-    
+                self.directReachabilityGraph.add_edge(anode, bnode)
+
     def LineSegmentClustering(self):
         """
         Algorithm Line Segment Clustering
@@ -108,7 +107,7 @@ class SegmentsClusterer:
         clusters = {}
         cid = 0
         possible_nodes_list = list(self.directReachabilityGraph.nodes())
-        
+
         while len(possible_nodes_list) > 0:
             node = possible_nodes_list[0]
             possible_nodes_list = possible_nodes_list[1:]
@@ -120,13 +119,13 @@ class SegmentsClusterer:
                 possible_nodes_list = new_possible_nodes_list
                 cid += 1
 
-#       TODO: remove clusters with no variaty of trajectories
-#        for cIndex, cluster in list(clusters.items()):
-#            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
-#            if len(trajIndexesSet) < self.MinLns:
-#                del clusters[cIndex]
+            #       TODO: remove clusters with no variaty of trajectories
+            #        for cIndex, cluster in list(clusters.items()):
+            #            trajIndexesSet = set([seg.trajIndex for seg in cluster]) # removes duplicates
+            #            if len(trajIndexesSet) < self.MinLns:
+            #                del clusters[cIndex]
         return clusters
-        
+
     def eps_neighborhood_of_seg(self, Li, vareps):
         """
         Traclus article Definition 4
@@ -158,7 +157,7 @@ class SegmentsClusterer:
             neighborhoods = [len(self.eps_neighborhood_of_seg(li, heps)) for li in self.lsegmentsList]
             print("neighborhoods calc ended")
             sum_neighborhoods = sum(neighborhoods)
-            ret = -sum((n/sum_neighborhoods) * math.log2(n/sum_neighborhoods) for n in neighborhoods)
+            ret = -sum((n / sum_neighborhoods) * math.log2(n / sum_neighborhoods) for n in neighborhoods)
             print("for {} - value is {}".format(heps, ret))
             return ret
 
@@ -173,87 +172,81 @@ class SegmentsClusterer:
 
         return opt_eps
 
-
     def plotClusters(self, axs, clusterList):
         """
         shows in local xy coords
         """
         axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
         colors = iter(cm.rainbow(np.linspace(0, 1, len(clusterList))))
-        clusterProcessor = ClusterProcessor(self.MinLns) 
+        clusterProcessor = ClusterProcessor(self.MinLns)
         print("plotClusters: {} clusters to plot.".format(len(clusterList)))
         for i, cluster in enumerate(clusterList):
-#            if i != 2:
-#                continue
-#            print("plotting cluster i = {}".format(i))
+            #            if i != 2:
+            #                continue
+            #            print("plotting cluster i = {}".format(i))
             ccolor = next(colors)
             clusterProcessor.loadLocalCluster_lsegList(cluster)
-            
+
             #################################
             #       Representative          #
             #################################
-            
+
             repr_And_walls = clusterProcessor.calcRepresentativeLocal(0.4)
             rxs = [raw[0][0] for raw in repr_And_walls]
             rys = [raw[0][1] for raw in repr_And_walls]
             if len(rxs) > 1:
-                axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-#                cols = np.arange(len(rxs))
-#                axs.scatter(rxs, rys, c = cols, s =150)
+                axs.plot(rxs, rys, color=ccolor, linewidth=5)
+            #                cols = np.arange(len(rxs))
+            #                axs.scatter(rxs, rys, c = cols, s =150)
             else:
                 print("cluster {} had no good representative".format(i))
                 # make convex hull:
-                hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] +\
-                                [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
+                hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] + \
+                                  [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
 
                 if type(hull) == GeometryCollection or type(hull) == LineString:
                     continue
                 else:
-#                print("made hull")
+                    #                print("made hull")
                     xs, ys = hull.exterior.xy
-                    axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
+                    axs.plot(xs, ys, color=ccolor, linewidth=2, alpha=0.5)  # , linestyle = '--')
                 continue
-            
+
             rxs = [raw[1][0] for raw in repr_And_walls] + [raw[2][0] for raw in repr_And_walls][::-1]
             rxs += [rxs[0]]
             rys = [raw[1][1] for raw in repr_And_walls] + [raw[2][1] for raw in repr_And_walls][::-1]
             rys += [rys[0]]
-            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-#            axs.scatter(rxs, rys, color = 'b', s =150)
-#            
-#            rxs = [raw[2][0] for raw in repr_And_walls]
-#            rys = [raw[2][1] for raw in repr_And_walls]
-#            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
-#            axs.scatter(rxs, rys, color = 'g', s =150)
-            
-            
+            axs.plot(rxs, rys, color=ccolor, linewidth=5)
+            #            axs.scatter(rxs, rys, color = 'b', s =150)
+            #
+            #            rxs = [raw[2][0] for raw in repr_And_walls]
+            #            rys = [raw[2][1] for raw in repr_And_walls]
+            #            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+            #            axs.scatter(rxs, rys, color = 'g', s =150)
+
+
             for seg in cluster:
                 e1x, e1y = seg.end1
                 e2x, e2y = seg.end2
                 xs = [e1x, e2x]
                 ys = [e1y, e2y]
-                axs.plot(xs, ys, color = ccolor, alpha=0.5, linestyle = '--')
-#            
-#            
-            
+                axs.plot(xs, ys, color=ccolor, alpha=0.5, linestyle='--')
+            #
+            #
+
 
             #################################
             #   AvgDir Plotting             #
             #################################
-            
-#            avgDirLLine = clusterProcessor.calcAverageDirection()
-#            axs.plot([avgDirLLine.end1[0], avgDirLLine.end2[0]], [avgDirLLine.end1[1], avgDirLLine.end2[1]], color = ccolor, linewidth = 5)
-#            axs.scatter([avgDirLLine.end1[0]],[avgDirLLine.end1[1]], color = 'r', s =150)
-            
-            
-            
-#            print("cluster i={}, reprAndWals = {}".format(i, repr_And_walls))
-            
-            
-            
-                
-                
-    
+
+            #            avgDirLLine = clusterProcessor.calcAverageDirection()
+            #            axs.plot([avgDirLLine.end1[0], avgDirLLine.end2[0]], [avgDirLLine.end1[1], avgDirLLine.end2[1]], color = ccolor, linewidth = 5)
+            #            axs.scatter([avgDirLLine.end1[0]],[avgDirLLine.end1[1]], color = 'r', s =150)
+
+
+
+            #            print("cluster i={}, reprAndWals = {}".format(i, repr_And_walls))
+
     # UNUSED METHODS #
     def isCoreLineSegment(self, Li):
         '''
@@ -261,7 +254,7 @@ class SegmentsClusterer:
         '''
         raise Exception("Don't use this highly inefficient function")
         return len(self.eps_neighborhood_of_seg(Li, self.eps)) >= self.MinLns
-    
+
     def isDirectlyDensityReachable(self, line, fromLine):
         '''
         Traclus article Definition 6
@@ -271,48 +264,50 @@ class SegmentsClusterer:
             if len(self.eps_neighborhood_of_seg(fromLine, self.eps)) >= self.MinLns:
                 return True
         return False
-     
+
     def isDensityReachable(self, line, fromLine):
         '''
         Traclus article Definition 7
         TODO: currently inefficient (read about R-Tree for optimization)
         '''
         try:
-            sp = shortest_path(self.directReachabilityGraph, source = fromLine, target = line)
-            if len(sp)>0:
+            sp = shortest_path(self.directReachabilityGraph, source=fromLine, target=line)
+            if len(sp) > 0:
                 return True
             else:
                 return False
         except nxe.NetworkXNoPath as e:
             return False
-        
+
     def isDensityConnected(self, line, toLine):
         '''
         Traclus article Definition 8
         '''
-        if any(self.isDirectlyDensityReachable(line, Lk) 
-                and self.isDirectlyDensityReachable(toLine, Lk) 
-                    for Lk in self.directReachabilityGraph.nodes()):
+        if any(self.isDirectlyDensityReachable(line, Lk)
+               and self.isDirectlyDensityReachable(toLine, Lk)
+               for Lk in self.directReachabilityGraph.nodes()):
             return True
         return False
-    
+
     def isDensityConnectedSet(self, clusterListOfSegments):
         '''
         Traclus article Definition 9
         '''
         if len(clusterListOfSegments) == 0:
             return False
-        
-        connectivity = all(self.isDensityConneced(prod[0], prod[1]) for prod in itertools.product(clusterListOfSegments, clusterListOfSegments))
+
+        connectivity = all(self.isDensityConneced(prod[0], prod[1]) for prod in
+                           itertools.product(clusterListOfSegments, clusterListOfSegments))
         if not connectivity:
             return False
-        
-        Maximality =  all(prod[1] in clusterListOfSegments for
-            prod in itertools.product(self.directReachabilityGraph.nodes(), self.directReachabilityGraph.nodes())
-            if prod[0] in clusterListOfSegments and self.isDensityReachable(prod[1], prod[0]))
+
+        Maximality = all(prod[1] in clusterListOfSegments for
+                         prod in
+                         itertools.product(self.directReachabilityGraph.nodes(), self.directReachabilityGraph.nodes())
+                         if prod[0] in clusterListOfSegments and self.isDensityReachable(prod[1], prod[0]))
         return Maximality
-       
-    
+
+
 class SegmentsMatrix:
     resolution = 2.0
 
@@ -334,8 +329,7 @@ class SegmentsMatrix:
         '''
         self.spInxMap = {}
         self.eps = eps
-    
-    
+
     def segToMatrixInx(self, lseg):
         """
         returns the index of the matrix the segment belongs to
@@ -350,7 +344,7 @@ class SegmentsMatrix:
         segMXY = (xm, ym)
         segMatrixIndex = self.segMXYToMatrixInx(segMXY)
         return segMatrixIndex
-    
+
     def segMXYToMatrixInx(self, segMXY):
         """
         segMXY inx must be greater than originXY in both dimensions
@@ -360,8 +354,8 @@ class SegmentsMatrix:
         mx, my = segMXY
         i = int(mx / SegmentsMatrix.resolution)
         j = int(my / SegmentsMatrix.resolution)
-        return (i,j)
-        
+        return i, j
+
     def constructMatrix(self):
         myMap = {}
         for seg in self.lsegmentList:
@@ -370,7 +364,7 @@ class SegmentsMatrix:
                 myMap[segMatrixIndex].append(seg)
             else:
                 myMap[segMatrixIndex] = [seg]
-                
+
         self.spInxMap = myMap
 
     def get_segments_by_eps(self, spatial_index, vareps):
@@ -396,6 +390,5 @@ class SegmentsMatrix:
                 if ii < 0 or jj < 0:
                     continue
                 if (ii, jj) in self.spInxMap:
-                    result += self.spInxMap[(ii,jj)]
+                    result += self.spInxMap[(ii, jj)]
         return result
-

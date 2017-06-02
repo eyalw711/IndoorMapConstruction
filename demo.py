@@ -128,7 +128,7 @@ class Demo:
 
 def main():
     print("Genrating Fixes")
-    FixFactory.Generate()
+    #FixFactory.Generate()
 
     print("Starting IndoorMappingAlgorithm")
     mapper = IndoorMapper('TauTrajDump', 5, 3)

@@ -46,6 +46,8 @@ class TrajectorySegmenter:
         Returns Fix list of Characteristic Points 
         of the segmented trajectory
         '''
+
+        assert isinstance(trajectory, Trajectory)
         CPs = []  # Characteristic Points
         CPs += [trajectory[0]]  # starting point
         trajLen = len(trajectory.FixList)
