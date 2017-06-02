@@ -226,7 +226,7 @@ class TrajectoryCollectionCSVLoader:
         data = pd.read_csv('data//' + filename + '.csv')
         for index, row in data.iterrows():
             trajectoryIndex = row['trajIndex']
-            if not trajectoryIndex in self.trajectoryCollection:
+            if trajectoryIndex not in self.trajectoryCollection:
                 self.trajectoryCollection[trajectoryIndex] = Trajectory(list())
             self.trajectoryCollection[trajectoryIndex].append(Fix(row['lat'], row['long'], row['alt'], row['time']))
         return self.trajectoryCollection

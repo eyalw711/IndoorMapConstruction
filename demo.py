@@ -132,7 +132,7 @@ def main():
 
     print("Starting IndoorMappingAlgorithm")
     mapper = IndoorMapper('TauTrajDump', 5, 3)
-    map_poly, graph = mapper.run(None, True)
+    map_poly, graph = mapper.run(None, False)
     d = Demo(map_poly, graph)
     d.run()
 
