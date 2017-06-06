@@ -46,6 +46,7 @@ class TrajectorySegmenter:
         Returns Fix list of Characteristic Points 
         of the segmented trajectory
         '''
+        no_partition_penalty = 2
         CPs = [] #Characteristic Points
         CPs += [trajectory[0]] #starting point
         trajLen = len(trajectory.FixList)
@@ -57,7 +58,7 @@ class TrajectorySegmenter:
 #            print("approximateTrajectoryPartitioning: going into MDL_par - {}".format(currIndex))
             costPar = TrajectorySegmenter.MDL_par(trajectory, startIndex, currIndex)
 #            print("approximateTrajectoryPartitioning: going into MDL_noPar - {}".format(currIndex))
-            costNoPar = TrajectorySegmenter.MDL_noPar(trajectory, startIndex, currIndex)
+            costNoPar = no_partition_penalty + TrajectorySegmenter.MDL_noPar(trajectory, startIndex, currIndex)
 #            print("currIndex: {}, costPar: {}, costNoPar: {}".format(currIndex, costPar, costNoPar))
             #check if partitioning at the current point makes
             #the MDL cost larger than not partitioning
@@ -84,18 +85,13 @@ class TrajectorySegmenter:
         LH = log2(1 + endToEndLine.length())
         
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
-        
-        #TODO: changed here to new distance metric
+
         try:
             LDH = log2(1 + sum(endToEndLine.myDistance(lineSeg) for lineSeg in lineSegments))
-#        try:
-#            LDH = log2(1 + sum(GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments)) +\
-#                log2(1 + sum(GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments))
+
         except ValueError:
             print("startInx= {}, currInx= {}".format(startIndex, currIndex))
             print("myDistances", [endToEndLine.myDistance(lineSeg) for lineSeg in lineSegments])
-#            print("Perpendicular distances", [GLine.perpendicularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
-#            print("Angular distances", [GLine.angularDist(endToEndLine, lineSeg) for lineSeg in lineSegments])
             raise SystemExit(0)
         return LH + LDH
     
@@ -106,12 +102,9 @@ class TrajectorySegmenter:
         point between pi and pj , i.e., when preserving the original trajectory.
         (trajectory as is)
         '''
-        
-        #TODO: article says add small constant to cost_NoPar to get better clustering - make experiements
+
         lineSegments = Trajectory.toLineSegmentList(trajectory[startIndex : currIndex + 1])
         LH = log2(1 + sum(lineSeg.length() for lineSeg in lineSegments))
-#        print("MDL_noPar - {}".format(LH))
-        # LDH = 0 as seen in document
         return LH
         
 

@@ -37,25 +37,35 @@ def testTrajectoryMaking(buildingNum):
     bd = Building.buildingBuilder(buildingNum)
     bd.plotOnGoogleMap(buildingNum)
     tm = TrajectoryMaker(bd)
-    t1 = tm.makeFixList(1)
+    t1 = tm.makeFixList(2)
+    t2 = tm.makeFixList(2)
+    t3 = tm.makeFixList(2)
     bd.plot(axs)
-    t1.plot(axs)
-    tm.makeDataSet(siteNames[buildingNum], 25, 1)
+    t1.plot(axs, color='#4082ed')
+    t2.plot(axs, color='#8de238')
+    t3.plot(axs, color='#e238e2')
+    #tm.makeDataSet(siteNames[buildingNum], 25, 1)
     print("testTrajectoryMaking: End")
 
 
 def testTrajectorySegmentation():
     loader = TrajectoryCollectionCSVLoader()
-    loader.loadTrajectoryCollectionFromCSV('KfarSaba')
+    loader.loadTrajectoryCollectionFromCSV('PTK')
 
-    trajectory = loader.trajectoryCollection[3]
+    trajectory = loader.trajectoryCollection[8]
 
     fixlist = TrajectorySegmenter.approximateTrajectoryPartitioning(trajectory)
     segmentedTrajectory = Trajectory(fixlist)
 
     fig, axs = plt.subplots(2, 1)
+
     segmentedTrajectory.plot(axs[1], color='#ea2ce1')  # , linestyle = '--')
     trajectory.plot(axs[0])
+    print("Original trajectory fix count = {}, segmentedTrajectory fix cound = {}".format(
+        len(trajectory.FixList), len(segmentedTrajectory.FixList)
+    ))
+    axs[0].set_title("Original Trajectory - fix count = {}".format(len(trajectory.FixList)))
+    axs[1].set_title("Segmented Trajectory - fix count = {}".format(len(segmentedTrajectory.FixList)))
 
 
 def testPlotClusters():
@@ -74,7 +84,7 @@ def testPlotClusters():
     fig, axs = plt.subplots()
     SegmentsClusterer.plotClusters(axs, list(clusters.values()))
 
-
+''' OBSOLETE '''
 def testTrajectoryClustering(withPickle=False):
     start = time.time()
     if not withPickle:
@@ -142,13 +152,15 @@ def testTrajectoryClusteringWithPickle():
 
 
 try:
+    #    testTrajectorySegmentation()
+    #    testTrajectoryClustering(withPickle=False)
     testMapper()
     plt.show()
+
 # testTrajectoryMaking(2)
-##    testTrajectorySegmentation()  
-#    testTrajectoryClustering(withPickle=True)
-##    testTrajectoryClusteringWithPickle()  
+##    testTrajectoryClusteringWithPickle()
 ##    testPlotClusters()
+
 except:
     print("Exception:")
     print('-' * 60)

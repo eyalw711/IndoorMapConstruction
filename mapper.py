@@ -49,7 +49,7 @@ class IndoorMapper:
             segmenter = TrajectorySegmenter(trajectoryDict)
             print("{}: TrajectorySegmenter started.".format(time.time() - start))
             print("{}: Starting to segment the trajectory collection...".format(time.time() - start))    
-            segmentsList = segmenter.segmentsOfTrajectoryCollection(25) #list of segment objects (GLine)
+            segmentsList = segmenter.segmentsOfTrajectoryCollection(-1) #list of segment objects (GLine)
             print("{}: Segmentation of trajectory collection done. {} segments extracted.".format(time.time() - start, len(segmentsList)))
             
             print("{}: Starting a SegmentsClusterer. This will build a graph, might be very slow...".format(time.time() - start))
@@ -110,7 +110,10 @@ class IndoorMapper:
         if axs != None:
             axs.set_title("Clustering eps = {} MinLns = {}".format(self.eps, self.MinLns))
         zip_for_map = copy.deepcopy(polygonsAndReprTrajs)
-        # processor.plot_clusters_and_reprs(axs, polygonsAndReprTrajs)
+
+        # debug
+        processor.plot_clusters_and_reprs(None, polygonsAndReprTrajs)
+
         map_poly, routing_graph = processor.make_map_from_zip_polygons_trajs(axs, zip_for_map)
 
         geojson_map_string, geo_routing_graph = IndoorMapper.convert_local_to_geo(map_poly, routing_graph, clusterer.projector)

@@ -37,6 +37,8 @@ class ClusterProcessor:
 
     def plot_clusters_and_reprs(self, axs, polygonsAndReprTrajs):
         """ input is a zip of <polygon, traj> """
+        if axs == None:
+            fig, axs = plt.subplots()
 
         polygonsAndReprTrajs = list(polygonsAndReprTrajs)
         colors = iter(cm.rainbow(np.linspace(0, 1, len(polygonsAndReprTrajs))))
@@ -51,6 +53,7 @@ class ClusterProcessor:
             # plot representative trajectory
             reprTraj_xist_ylist_tuple = e[1]
             axs.plot(*reprTraj_xist_ylist_tuple, color=ccolor, linewidth=5)
+        plt.show()
 
     def process(self, clusterList):
         """ returns a zip of <polygon, traj> """
@@ -216,7 +219,6 @@ class ClusterProcessor:
             nextPosition_a = lline.llineTravel(currPosition)
             nextPosition_b = lline.llineTravel(currPosition, reverse=True)
 
-            # TODO: check why this greedy operation didn't help
             dist_a = math.sqrt((nextPosition_a[0] - origin[0]) ** 2 +
                                (nextPosition_a[1] - origin[1]) ** 2)
             dist_b = math.sqrt((nextPosition_b[0] - origin[0]) ** 2 +
@@ -333,7 +335,6 @@ class ClusterProcessor:
 
             calculationsPool.append([xval, statistics.mean(yvals), (statistics.stdev(yvals))])
 
-        # the 1.5 is experimental
         representative_and_walls = [(self.rotationalProjector.rotatedXYToXY(pe[0], pe[1]), \
                                      self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] + 2 * math.sqrt(3) * pe[2]), \
                                      self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] - 2 * math.sqrt(3) * pe[2]))

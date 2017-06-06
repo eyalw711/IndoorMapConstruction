@@ -182,7 +182,7 @@ class TrajectoryMaker:
                     currFix = nextFix
                     break
                 else:
-                    currBrng += random.uniform(-45,45)
+                    currBrng += random.uniform(-15,15)
                     i+=1
                     if i > 500:
                         fig,axs = plt.subplots()

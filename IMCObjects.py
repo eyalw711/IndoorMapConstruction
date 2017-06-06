@@ -358,7 +358,7 @@ class LLine:
         # cehck intersection between startToStartPath, endToEndPath
         # deal with both cases
         
-        def _dist(p1, p2): # distance between nvector GeoPoints
+        def _dist(p1, p2):
             return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
         
         d1 =  _dist(myStart, otherStart) +\
