@@ -80,7 +80,8 @@ class ClusterProcessor:
                 else:
                     hxs, hys = hull.exterior.xy
                     poly_byConvexHull = Polygon(list(zip(hxs, hys)))
-                    clusterpoly = poly_bySigma.intersection(poly_byConvexHull)
+                    if poly_bySigma.is_valid:
+                        clusterpoly = poly_bySigma.intersection(poly_byConvexHull)
                     if type(clusterpoly) != Polygon:
                         clusterpoly = poly_bySigma
                 trajs.append((rxs, rys,))

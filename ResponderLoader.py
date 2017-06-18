@@ -13,12 +13,15 @@ from shapely.geometry import Polygon, MultiPoint, LinearRing, LineString, MultiP
 from matplotlib import pyplot as plt
 import random
 import pandas as pd
+from shapely.geometry import Point
 from IMCObjects import GPoint, Fix, Trajectory
 from Projector import EquirectangularProjector
 import gmplot
 from BaruchCode import trilateration
 from Utility import CircleUtility
 from GoogleMapsTool import GoogleMapsConfig, GoogleMapFactory
+from FixFilteringEngine import FilteringFactoryGenerator, OuterWallsFiltering
+
 
 class ResponderLoader:
     def __init__(self, fileName, floor):
@@ -145,6 +148,7 @@ class LocationEngine:
         self.ResponderLoader = ResponderLoader(configuration.ReponderFileName, configuration.Floor)
         self.FullFixCollection = []
         self.LocationFinder = LocationFinder()
+        self.FixFiltererEngine = None
 
         ''' Location of fixes'''
         self.xLoc = []
@@ -158,6 +162,7 @@ class LocationEngine:
         print("Loading responders and initializeing LocationFinder")
         self.ResponderLoader.InitResponders()
         self.LocationFinder.InitLocationFinder(self.ResponderLoader.RespondersCollection)
+        self.FixFiltererEngine = FilteringFactoryGenerator.GenerateFilter(self.ResponderLoader.getProjector())
 
     def PlotResponders(self, axs, color='b'):
         X = []
@@ -186,32 +191,40 @@ class LocationEngine:
         rangeLoader.LoadRanges()
         return rangeLoader
 
-    def ExtractFixLocation(self):
+    def ExtractFixLocation(self, isFilter=True):
         projector = self.ResponderLoader.getProjector()
         assert isinstance(projector, EquirectangularProjector)
 
         print("Starting Extract Location")
-        i = 0
+        filterPoints = 0
         trajIndex = 0
         for fileCol in self.FullFixCollection:
             LongTemp = []
             LatTemp = []
             for colection in fileCol:
-                d1 = datetime.datetime.now()
+                isAddToList = True
+
                 tempX, tempY = self.LocationFinder.GetLocation(colection)
                 tempLat, tempLong = projector.XYToLatLong(tempX, tempY)
-                d2 = datetime.datetime.now()
-                # print("Time {} for fix index:{}".format(d2 - d1, i))
-                self.xLoc.append(tempX)
-                self.yLoc.append(tempY)
-                LatTemp.append(tempLat)
-                LongTemp.append(tempLong)
-                i += 1
+                if isFilter:
+                    isAddToList = self.FixFiltererEngine.IsInPolygon(Point(tempX, tempY))
+                    if not isAddToList:
+                        filterPoints += 1
+
+                if isAddToList:
+                    self.xLoc.append(tempX)
+                    self.yLoc.append(tempY)
+                    LatTemp.append(tempLat)
+                    LongTemp.append(tempLong)
 
             self.LatLoc += LatTemp
             self.LongLoc += LongTemp
             self.AddTrajectoryToTrajFile(LatTemp, LongTemp, trajIndex)
             trajIndex += 1
+
+        if isFilter:
+            print("{} were filtered due to out of polygon. Using {} points".format(filterPoints, len(self.xLoc)))
+
         assert len(self.xLoc) == len(self.yLoc)
 
     def AddTrajectoryToTrajFile(self, LatTemp, LongTemp, trajIndex):
@@ -226,6 +239,7 @@ class LocationEngine:
 
     def PlotFixes(self, axs, color="r"):
         axs.plot(self.xLoc, self.yLoc, 'ro', color=color)
+        self.FixFiltererEngine.Plot(axs)
 
     def PlotLocationToGoogleMaps(self, fileName = "Range_GMAP.html"):
         googleMapsConfig = GoogleMapsConfig(self.LatLoc,self.LongLoc,fileName)
@@ -233,7 +247,7 @@ class LocationEngine:
 
 
 class LocationEngineConfig:
-    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle, minRangesInFix=3):
+    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle, minRangesInFix=4):
         self.ReponderFileName = responderFileName
         self.LocationFileNamesSet = locationFileNames
         self.NumOfMeasurmentsInCycle = numberOfRespondersInCycle
@@ -325,12 +339,12 @@ def RunEngine(configuration, axs):
     Engine.InitEngine()
     Engine.PlotResponders(axs)
     Engine.LoadRanges()
-    Engine.ExtractFixLocation()
+    Engine.ExtractFixLocation(True)
     Engine.PlotFixes(axs)
     Engine.PlotLocationToGoogleMaps()
     Engine.DumpTrajCsv()
 
-    return
+    return Engine
 
 
 class FixFactory:
@@ -340,7 +354,7 @@ class FixFactory:
 
 
 def main():
-    fig, axs = plt.subplots(1, 2)
+    fig, axs = plt.subplots(1, 1)
 
     ''', "RangesLobby", "RangesClasses"'''
 #    Engine = LocationEngine(LocationEngineConfig("Respodenrs", 2, ["RangesLabs", "RangesLobby", "RangesClasses"], 43))
@@ -350,10 +364,11 @@ def main():
     # RangeFileList = ["RangeFloor1_4", "RangeFloor1_5", "RangeFloor1_6"]
 
     #RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3), axs[0])
-    RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3), axs[1])
-    axs[0].grid(True)
-    axs[1].grid(True)
+    engine = RunEngine(LocationEngineConfig("RespodenrsFloor", 1, RangeFileList, 16, 4), axs)
+
+    axs.grid(True)
     plt.show()
+
 
 if __name__ == "__main__":
     main()

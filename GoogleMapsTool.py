@@ -19,4 +19,4 @@ class GoogleMapFactory:
             return
         gomap = gmplot.GoogleMapPlotter(configuration.Lat[0], configuration.Long[0], 20)
         gomap.scatter(configuration.Lat, configuration.Long, marker=marker, size=size)
-        gomap.draw(configuration.FileName)
+        gomap.draw("GoogleMaps//{}".format(configuration.FileName))
