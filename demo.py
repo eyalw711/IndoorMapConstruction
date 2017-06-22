@@ -40,7 +40,7 @@ class Router(object):
                 print("Source and Destination are not connected!")
                 return
             xs, ys = zip(*path)
-            line, = self.axs.plot(xs, ys)
+            line, = self.axs.plot(xs, ys, color='red')
             self.path = line
             self.figure.canvas.draw()
 
@@ -125,7 +125,8 @@ class Demo:
         plt.show()
 
 
-mapper = IndoorMapper('TauTrajDump', 5, 3)
+# mapper = IndoorMapper('TauTrajDump', 11, 7) # good line for 2*sigma estimation
+mapper = IndoorMapper('TauTrajDump', 12.5, 3)
 map_poly, graph = mapper.run(None, True)
 d = Demo(map_poly, graph)
 d.run()

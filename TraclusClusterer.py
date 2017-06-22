@@ -197,7 +197,8 @@ class SegmentsClusterer:
             rxs = [raw[0][0] for raw in repr_And_walls]
             rys = [raw[0][1] for raw in repr_And_walls]
             if len(rxs) > 1:
-                axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+                print("ok")
+                # axs.plot(rxs, rys, color = ccolor, linewidth = 5)
 #                cols = np.arange(len(rxs))
 #                axs.scatter(rxs, rys, c = cols, s =150)
             else:
@@ -211,14 +212,14 @@ class SegmentsClusterer:
                 else:
 #                print("made hull")
                     xs, ys = hull.exterior.xy
-                    axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
+                    # axs.plot(xs, ys, color = ccolor, linewidth = 2, alpha=0.5) #, linestyle = '--')
                 continue
             
             rxs = [raw[1][0] for raw in repr_And_walls] + [raw[2][0] for raw in repr_And_walls][::-1]
             rxs += [rxs[0]]
             rys = [raw[1][1] for raw in repr_And_walls] + [raw[2][1] for raw in repr_And_walls][::-1]
             rys += [rys[0]]
-            axs.plot(rxs, rys, color = ccolor, linewidth = 5)
+            # axs.plot(rxs, rys, color = ccolor, linewidth = 5)
 #            axs.scatter(rxs, rys, color = 'b', s =150)
 #            
 #            rxs = [raw[2][0] for raw in repr_And_walls]

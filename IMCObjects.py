@@ -360,14 +360,11 @@ class LLine:
         
         def _dist(p1, p2):
             return math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2)
-        
-        d1 =  _dist(myStart, otherStart) +\
-                _dist(myMiddle, otherMiddle) +\
-                _dist(myEnd, otherEnd)
+
+        factor = 5
+        d1 = factor*_dist(myStart, otherStart) + _dist(myMiddle, otherMiddle) + factor*_dist(myEnd, otherEnd)
                 
-        d2 = _dist(myStart, otherEnd) +\
-                _dist(myMiddle, otherMiddle) +\
-                _dist(myEnd, otherStart)
+        d2 = factor*_dist(myStart, otherEnd) + _dist(myMiddle, otherMiddle) + factor*_dist(myEnd, otherStart)
         return min(d1, d2)
 
 class LSegment(LLine):

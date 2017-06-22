@@ -39,6 +39,11 @@ class ClusterProcessor:
         """ input is a zip of <polygon, traj> """
         if axs == None:
             fig, axs = plt.subplots()
+            # -------- debug - clusters plotting -------------------
+            fig.suptitle('Cluster Shapes and Representative Trajectories')
+            plt.xlabel('local x coordinates [m]')
+            plt.ylabel('local y coordinates [m]')
+            # -------------------------------------------------------
 
         polygonsAndReprTrajs = list(polygonsAndReprTrajs)
         colors = iter(cm.rainbow(np.linspace(0, 1, len(polygonsAndReprTrajs))))
@@ -74,18 +79,18 @@ class ClusterProcessor:
                 poly_bySigma = Polygon(list(zip(wxs, wys)))
                 clusterpoly = poly_bySigma
 
-                # make convex hull:
-                hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] + \
-                                  [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
-
-                if type(hull) == GeometryCollection or type(hull) == LineString:
-                    print("cluster {} had no good convex hull".format(i))
-                else:
-                    hxs, hys = hull.exterior.xy
-                    poly_byConvexHull = Polygon(list(zip(hxs, hys)))
-                    clusterpoly = poly_bySigma.intersection(poly_byConvexHull)
-                    if type(clusterpoly) != Polygon:
-                        clusterpoly = poly_bySigma
+                # # make convex hull:
+                # hull = MultiPoint([shapelyPoint(seg.end1[0], seg.end1[1]) for seg in cluster] + \
+                #                   [shapelyPoint(seg.end2[0], seg.end2[1]) for seg in cluster]).convex_hull
+                #
+                # if type(hull) == GeometryCollection or type(hull) == LineString:
+                #     print("cluster {} had no good convex hull".format(i))
+                # else:
+                #     hxs, hys = hull.exterior.xy
+                #     poly_byConvexHull = Polygon(list(zip(hxs, hys)))
+                #     clusterpoly = poly_bySigma.intersection(poly_byConvexHull)
+                #     if type(clusterpoly) != Polygon:
+                #         clusterpoly = poly_bySigma
                 trajs.append((rxs, rys,))
                 polygons.append(clusterpoly)
 
@@ -161,13 +166,25 @@ class ClusterProcessor:
             grp.add_edge(m, b, wieght=ClusterProcessor.dist(*m, *b))
 
         # optional plotting:
-        # fig, axs = plt.subplots()
-        if axs != None:
+        fig, axs = plt.subplots()
+        fig.suptitle('Map and Underlying Routing Graph')
+        plt.xlabel('local x coordinates [m]')
+        plt.ylabel('local y coordinates [m]')
+        if isinstance(map_poly, MultiPolygon):
             for polygon in map_poly:
                 x, y = polygon.exterior.xy
                 axs.plot(x, y)
                 patch = PolygonPatch(polygon, alpha=0.5, zorder=2)
                 axs.add_patch(patch)
+            for edge in grp.edges():
+                xs, ys = list(zip(*edge))
+                axs.plot(xs, ys, color="b")
+            plt.show()
+        else:
+            x, y = map_poly.exterior.xy
+            axs.plot(x, y)
+            patch = PolygonPatch(map_poly, alpha=0.5, zorder=2)
+            axs.add_patch(patch)
             for edge in grp.edges():
                 xs, ys = list(zip(*edge))
                 axs.plot(xs, ys, color="b")
@@ -336,8 +353,8 @@ class ClusterProcessor:
             calculationsPool.append([xval, statistics.mean(yvals), (statistics.stdev(yvals))])
 
         representative_and_walls = [(self.rotationalProjector.rotatedXYToXY(pe[0], pe[1]), \
-                                     self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] + 2 * math.sqrt(3) * pe[2]), \
-                                     self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] - 2 * math.sqrt(3) * pe[2]))
+                                     self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] +   math.sqrt(3) * pe[2]), \
+                                     self.rotationalProjector.rotatedXYToXY(pe[0], pe[1] -   math.sqrt(3) * pe[2]))
                                     for pe in calculationsPool]
 
         if len(representative_and_walls) < 2:

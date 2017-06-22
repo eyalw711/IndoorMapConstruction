@@ -72,8 +72,23 @@ class IndoorMapper:
         #############################################
 
         opt_eps = clusterer.set_epsilon(self.eps)
-        # self.eps = opt_eps
 
+        # -------- debug - clusters plotting -------------------
+        fig, axs = plt.subplots()
+        fig.suptitle('All Line Segments')
+        plt.xlabel('local x coordinates [m]')
+        plt.ylabel('local y coordinates [m]')
+        for seg in clusterer.lsegmentsList:
+            e1x, e1y = seg.end1
+            e2x, e2y = seg.end2
+            xs = [e1x, e2x]
+            ys = [e1y, e2y]
+            axs.plot(xs, ys, color='red', alpha=0.5, linestyle='--')
+        plt.show()
+        # -------------------------------------------------------
+
+
+        # self.eps = opt_eps
         # self.MinLns = int(self.eps) + 2
 
         pickle_graph_name = "pickles//graph_csvName_{}_eps_{}_minlns_{}".format(\
@@ -100,8 +115,18 @@ class IndoorMapper:
         print("{}: Starting clustering process... Graph has {} nodes and {} edges".format(time.time() - start, len(clusterer.directReachabilityGraph.nodes()),
               len(clusterer.directReachabilityGraph.edges())))
         clustersDict = clusterer.LineSegmentClustering()
+
+        #-------- debug - clusters plotting -------------------
+        fig, axs = plt.subplots()
+        fig.suptitle('clusters')
+        plt.xlabel('local x coordinates [m]')
+        plt.ylabel('local y coordinates [m]')
+        clusterer.plotClusters(axs, clustersDict.values())
+        plt.show()
+        #-------------------------------------------------------
+
         print("{}: Clustering process ended. Got {} clusters.".format(time.time() - start, len(clustersDict.values())))
-        
+
         print("{}: Starting Cluster processing...".format(time.time() - start))
         processor = ClusterProcessor(self.MinLns)
         polygonsAndReprTrajs = processor.process(clustersDict.values())
