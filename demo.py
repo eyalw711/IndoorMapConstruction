@@ -5,6 +5,7 @@ from descartes import PolygonPatch
 import networkx as nx
 from shapely.geometry import Polygon
 from ResponderLoader import FixFactory
+import pickle
 
 class Router(object):
 
@@ -127,7 +128,25 @@ class Demo:
 
 
 # mapper = IndoorMapper('TauTrajDump', 11, 7) # good line for 2*sigma estimation
-mapper = IndoorMapper('TauTrajDump', 12.5, 3)
-map_poly, graph = mapper.run(None, True)
-d = Demo(map_poly, graph)
-d.run()
+    def createDemo():
+        mapper = IndoorMapper('TauTrajDump', 12.5, 3)
+        map_poly, graph = mapper.run(None, True)
+        d = Demo(map_poly, graph)
+        try:
+            with open("kitot_demo", "wb") as pickleFile:
+                pickle.dump((map_poly, graph), pickleFile)
+        except Exception:
+            print("fail dumping demo")
+        d.run()
+
+    def runDemo(pickeName):
+        try:
+            with open(pickeName, "rb") as pickleFile:
+                map_poly, graph = pickle.load(pickleFile)
+                d = Demo(map_poly, graph)
+                d.run()
+        except Exception:
+            print("fail loading demo")
+
+#Demo.createDemo()
+Demo.runDemo("kitot_demo")
