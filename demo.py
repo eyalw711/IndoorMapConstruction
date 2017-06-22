@@ -4,6 +4,7 @@ from mapper import IndoorMapper
 from descartes import PolygonPatch
 import networkx as nx
 from shapely.geometry import Polygon
+from ResponderLoader import FixFactory
 
 class Router(object):
 

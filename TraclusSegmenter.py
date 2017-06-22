@@ -7,26 +7,27 @@ Created on Sun Mar 26 15:33:07 2017
 from IMCObjects import Trajectory, GLine, Segment
 from math import log2
 
+
 class TrajectorySegmenter:
     def __init__(self, trajectoryCollection):
         ''' a dictionary with <trajectoryIndex, TrajectoryClassObject> '''
         self.trajectoryCollection = trajectoryCollection
-    
+
     def segmentsOfTrajectoryCollection(self, max_num_of_trajectories):
         ''' returns a list of Segment class objects '''
         segments = []
         i = 0
         for trajIndex, trajObject in self.trajectoryCollection.items():
-#            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
+            #            print("segmentsOfTrajectoryCollection: {}/{}".format(i, len(self.trajectoryCollection.items())))
             if i == max_num_of_trajectories:  # only take part of DB
                 return segments
-            i+=1
+            i += 1
             trajCPsFixList = TrajectorySegmenter.approximateTrajectoryPartitioning(trajObject)
-#            print("partitioned {}/{} and now building segments".format(i, len(self.trajectoryCollection.items())))
+            #            print("partitioned {}/{} and now building segments".format(i, len(self.trajectoryCollection.items())))
             segmentsOfTraj = TrajectorySegmenter.getSegmentsFromCPs(trajIndex, trajCPsFixList)
             segments += segmentsOfTraj
         return segments
-    
+
     def getSegmentsFromCPs(trajIndex, trajCPsFixList):
         ''' 
         param trajCPs needs to be a list of GPoints (could be fixes since inheritance)
@@ -35,12 +36,11 @@ class TrajectorySegmenter:
         segments = []
         for i in range(len(trajCPsFixList) - 1):
             cpstart = trajCPsFixList[i]
-            cpend = trajCPsFixList[i+1]
+            cpend = trajCPsFixList[i + 1]
             segment = Segment(cpstart, cpend, trajIndex)
             segments.append(segment)
         return segments
-            
-    
+
     def approximateTrajectoryPartitioning(trajectory):
         ''' 
         Returns Fix list of Characteristic Points 
@@ -52,7 +52,7 @@ class TrajectorySegmenter:
         trajLen = len(trajectory.FixList)
         startIndex = 0
         length = 1
-#        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
+        #        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
         while startIndex + length <= trajLen - 1:
             currIndex = startIndex + length
 #            print("approximateTrajectoryPartitioning: going into MDL_par - {}".format(currIndex))
@@ -72,7 +72,7 @@ class TrajectorySegmenter:
                 length += 1
         CPs += [trajectory[trajLen - 1]]
         return CPs
-    
+
     def MDL_par(trajectory, startIndex, currIndex):
         '''
         denotes the MDL cost L(H)+L(D|H) of trajectory between PstartIndex and PcurrIndex
@@ -94,7 +94,7 @@ class TrajectorySegmenter:
             print("myDistances", [endToEndLine.myDistance(lineSeg) for lineSeg in lineSegments])
             raise SystemExit(0)
         return LH + LDH
-    
+
     def MDL_noPar(trajectory, startIndex, currIndex):
         '''
         denotes the MDL cost L(H)+L(D|H) of trajectory between PstartIndex and PcurrIndex
