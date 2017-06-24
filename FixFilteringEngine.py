@@ -1,38 +1,12 @@
-import sys, traceback
-import pickle
-from IMCObjects import Trajectory, Segment, GPoint
-from TrajectoryMaker import TrajectoryCollectionCSVLoader, Building, TrajectoryMaker
-from TraclusSegmenter import TrajectorySegmenter
-from TraclusClusterer import SegmentsClusterer
-from matplotlib import pyplot as plt
-from shapely.geometry import MultiPoint
-from mapper import IndoorMapper
-import time
-import pandas as pd
-import pandas as pd
-import datetime
-from IMCObjects import GPoint
-from Projector import EquirectangularProjector
-from Structs import Responder
-from matplotlib import pyplot as plt
-from TrajectoryMaker import TrajectoryCollectionCSVLoader
-import pandas as pd
-from IMCObjects import GPoint, Fix, Trajectory
-from geopy.distance import vincenty, VincentyDistance
-from geopy.distance import Point as gpt
-from shapely.geometry import Polygon, MultiPoint, LinearRing, LineString, MultiPolygon
-from matplotlib import pyplot as plt
-import random
-import pandas as pd
-from IMCObjects import GPoint, Fix, Trajectory
-from Projector import EquirectangularProjector
-import gmplot
-from BaruchCode import trilateration
-from Utility import CircleUtility
-from GoogleMapsTool import GoogleMapsConfig, GoogleMapFactory
 import xml.etree.ElementTree as ET
+
+import pandas as pd
+from matplotlib import pyplot as plt
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon
+
+from IMCObjects import GPoint
+from Projector import EquirectangularProjector
 
 
 class CsvTool:

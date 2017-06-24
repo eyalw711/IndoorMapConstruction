@@ -1,24 +1,6 @@
 from matplotlib import pyplot as plt
-import time
-import copy
-from TraclusSegmenter import TrajectorySegmenter
-from TraclusClusterer import SegmentsClusterer
-from ClusterProcessor import ClusterProcessor
-import pickle
-from matplotlib import pyplot as plt
-import json
-import geojson
-from shapely.geometry import mapping
-import networkx as nx
-from geopy.distance import vincenty, VincentyDistance
-from geopy.distance import Point as gpt
-from shapely.geometry import Polygon, MultiPoint, LinearRing, LineString, MultiPolygon
-from matplotlib import pyplot as plt
-import random
-import pandas as pd
-from IMCObjects import GPoint, Fix, Trajectory
+
 from Projector import EquirectangularProjector
-import gmplot
 
 
 class PlotUtility:

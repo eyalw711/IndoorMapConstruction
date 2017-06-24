@@ -1,26 +1,14 @@
-import pandas as pd
 import datetime
-from IMCObjects import GPoint
+
+import pandas as pd
+from matplotlib import pyplot as plt
+from shapely.geometry import Point
+
+from FixFilteringEngine import FilteringFactoryGenerator
+from GoogleMapsTool import GoogleMapsConfig, GoogleMapFactory
 from Projector import EquirectangularProjector
 from Structs import Responder
-from matplotlib import pyplot as plt
-from TrajectoryMaker import TrajectoryCollectionCSVLoader
-import pandas as pd
-from IMCObjects import GPoint, Fix, Trajectory
-from geopy.distance import vincenty, VincentyDistance
-from geopy.distance import Point as gpt
-from shapely.geometry import Polygon, MultiPoint, LinearRing, LineString, MultiPolygon
-from matplotlib import pyplot as plt
-import random
-import pandas as pd
-from shapely.geometry import Point
-from IMCObjects import GPoint, Fix, Trajectory
-from Projector import EquirectangularProjector
-import gmplot
-from BaruchCode import trilateration
-from Utility import CircleUtility
-from GoogleMapsTool import GoogleMapsConfig, GoogleMapFactory
-from FixFilteringEngine import FilteringFactoryGenerator, OuterWallsFiltering
+from Trilateration import trilateration
 
 
 class ResponderLoader:
@@ -247,12 +235,13 @@ class LocationEngine:
 
 
 class LocationEngineConfig:
-    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle, minRangesInFix=4):
+    def __init__(self, responderFileName, floor, locationFileNames, numberOfRespondersInCycle, minRangesInFix=4, isFilter=True):
         self.ReponderFileName = responderFileName
         self.LocationFileNamesSet = locationFileNames
         self.NumOfMeasurmentsInCycle = numberOfRespondersInCycle
         self.Floor = floor
         self.MinRangesInFix = minRangesInFix
+        self.FilterOOB = isFilter
 
 
 def Run(fileName, axs, LAT, LONG):
@@ -339,7 +328,7 @@ def RunEngine(configuration, axs):
     Engine.InitEngine()
     Engine.PlotResponders(axs)
     Engine.LoadRanges()
-    Engine.ExtractFixLocation(True)
+    Engine.ExtractFixLocation(configuration.FilterOOB)
     Engine.PlotFixes(axs)
     Engine.PlotLocationToGoogleMaps()
     Engine.DumpTrajCsv()
@@ -360,11 +349,11 @@ def main():
 #    Engine = LocationEngine(LocationEngineConfig("Respodenrs", 2, ["RangesLabs", "RangesLobby", "RangesClasses"], 43))
     # RunEngine(LocationEngineConfig("Respodenrs", 2, ["Labs1", "Labs2"], 16, 3))
 
-    RangeFileList = ["RangeFloor1", "RangeFloor1_1","RangeFloor1_2","RangeFloor1_3", "RangeFloor1_4", "RangeFloor1_5", "RangeFloor1_6"]
+    RangeFileList = ["RangeFloor1", "RangeFloor1_1","RangeFloor1_2", "RangeFloor1_3",  "RangeFloor1_4", "RangeFloor1_5",  "RangeFloor1_6"]
     # RangeFileList = ["RangeFloor1_4", "RangeFloor1_5", "RangeFloor1_6"]
 
     #RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3), axs[0])
-    engine = RunEngine(LocationEngineConfig("RespodenrsFloor", 1, RangeFileList, 16, 4), axs)
+    engine = RunEngine(LocationEngineConfig("RespodenrsFloor1", 1, RangeFileList, 16, 3, False), axs)
 
     axs.grid(True)
     plt.show()

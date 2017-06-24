@@ -2,6 +2,7 @@ from sympy.geometry import Circle, Point
 from matplotlib import pyplot as plt
 import random
 
+
 class CircleUtility:
     @staticmethod
     def circle_intersection_sympy(circle1, circle2):

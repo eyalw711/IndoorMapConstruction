@@ -6,3 +6,7 @@
 *pickles/*
 *.geojson
 *.pyc
+*.kdx
+*.txt
+*.kml
+*.html

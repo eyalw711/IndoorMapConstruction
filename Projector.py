@@ -4,9 +4,11 @@ Created on Sat Apr 29 01:01:02 2017
 
 @author: Eyal
 """
-from matplotlib import pyplot as plt
 import math
-from IMCObjects import GPoint, GLine, LLine
+
+from matplotlib import pyplot as plt
+
+from IMCObjects import LLine
 
 
 class EquirectangularProjector:
