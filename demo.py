@@ -138,7 +138,7 @@ class Demo:
         map_poly, graph = mapper.run(None, False)
         d = Demo(map_poly, graph)
         try:
-            with open(csvName + "_demo_" + time.strftime("%d-%m-%Y_%H-%M-%S", time.gmtime()), "wb") as pickleFile:
+            with open("Demos/" + csvName + "_demo_" + time.strftime("%d-%m-%Y_%H-%M-%S", time.gmtime()), "wb") as pickleFile:
                 pickle.dump((map_poly, graph), pickleFile)
         except Exception:
             print("fail dumping demo")
