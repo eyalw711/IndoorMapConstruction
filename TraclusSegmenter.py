@@ -10,11 +10,11 @@ from math import log2
 
 class TrajectorySegmenter:
     def __init__(self, trajectoryCollection):
-        ''' a dictionary with <trajectoryIndex, TrajectoryClassObject> '''
+        """ a dictionary with <trajectoryIndex, TrajectoryClassObject> """
         self.trajectoryCollection = trajectoryCollection
 
     def segmentsOfTrajectoryCollection(self, max_num_of_trajectories):
-        ''' returns a list of Segment class objects '''
+        """ returns a list of Segment class objects """
         segments = []
         i = 0
         for trajIndex, trajObject in self.trajectoryCollection.items():
@@ -47,24 +47,20 @@ class TrajectorySegmenter:
         of the segmented trajectory
         '''
         no_partition_penalty = 2
-        CPs = [] #Characteristic Points
-        CPs += [trajectory[0]] #starting point
+        CPs = []                # Characteristic Points
+        CPs += [trajectory[0]]  # starting point
         trajLen = len(trajectory.FixList)
         startIndex = 0
         length = 1
-        #        print("approximateTrajectoryPartitioning: length {}".format(trajLen - 1))
         while startIndex + length <= trajLen - 1:
             currIndex = startIndex + length
-#            print("approximateTrajectoryPartitioning: going into MDL_par - {}".format(currIndex))
             costPar = TrajectorySegmenter.MDL_par(trajectory, startIndex, currIndex)
-#            print("approximateTrajectoryPartitioning: going into MDL_noPar - {}".format(currIndex))
             costNoPar = no_partition_penalty + TrajectorySegmenter.MDL_noPar(trajectory, startIndex, currIndex)
-#            print("currIndex: {}, costPar: {}, costNoPar: {}".format(currIndex, costPar, costNoPar))
-            #check if partitioning at the current point makes
-            #the MDL cost larger than not partitioning
+
+            # check if partitioning at the current point makes
+            # the MDL cost larger than not partitioning
             if costPar > costNoPar:
                 #partition at previous point
-#                print("added to CPs - index:{}, fix:{}".format(currIndex - 1, trajectory[currIndex - 1]))
                 CPs += [trajectory[currIndex - 1]]
                 startIndex = currIndex - 1
                 length = 1

@@ -6,6 +6,7 @@ import networkx as nx
 from shapely.geometry import Polygon
 from ResponderLoader import FixFactory
 import pickle
+import time
 
 class Router(object):
 
@@ -127,13 +128,17 @@ class Demo:
         plt.show()
 
 
-# mapper = IndoorMapper('TauTrajDump', 11, 7) # good line for 2*sigma estimation
     def createDemo():
-        mapper = IndoorMapper('TauTrajDump', 12.5, 3)
-        map_poly, graph = mapper.run(None, True)
+        # ------------------ Don't Delete! -----------------#
+        # Good for TauTrajDump:
+        # mapper = IndoorMapper('TauTrajDump', 12.5, 3)
+        # -------------------------------------------------#
+        csvName = 'ArimSim'
+        mapper = IndoorMapper(csvName, 18, 3)
+        map_poly, graph = mapper.run(None, False)
         d = Demo(map_poly, graph)
         try:
-            with open("kitot_demo", "wb") as pickleFile:
+            with open(csvName + "_demo_" + time.strftime("%d-%m-%Y_%H-%M-%S", time.gmtime()), "wb") as pickleFile:
                 pickle.dump((map_poly, graph), pickleFile)
         except Exception:
             print("fail dumping demo")
@@ -148,5 +153,7 @@ class Demo:
         except Exception:
             print("fail loading demo")
 
-#Demo.createDemo()
-Demo.runDemo("kitot_demo")
+# Demo.createDemo()
+
+Demo.runDemo("Demos/ArimSim_demo")
+# Demo.runDemo("TauTrajDump")
