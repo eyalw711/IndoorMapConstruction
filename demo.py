@@ -22,7 +22,7 @@ class Router(object):
         self.routing_graph = routing_graph
         self.figure = figure
         self.axs = axs
-        self.path = None
+        self.path_list = list()
 
         ''' Support routing in any place in the map'''
         self.externalSource = None
@@ -32,7 +32,7 @@ class Router(object):
         print("selecting source")
         self.is_select_source = True
 
-    def select_destination(self, event):
+    def select_destination(self, event=None):
         print("selecting destination")
         self.is_select_source = False
 
@@ -61,15 +61,18 @@ class Router(object):
                 ysL.insert(0, self.externalSource.y)
                 ysL.append(self.externalDest.y)
 
-            line, = self.axs.plot(xsL, ysL, color='red')
-            self.path = line
+            line, = self.axs.plot(xsL, ysL, color='white', linewidth=5)
+            self.path_list.append(line)
             self.figure.canvas.draw()
 
     def clear(self, event):
-        self.path.set_data([],[])
+        """ Enable deleting all paths from previous run"""
+        for path in self.path_list:
+            path.set_data([],[])
         self.figure.canvas.draw()
         self.source = None
         self.destination = None
+        self.path_list = list()
 
     def onpick(event, router_instance, axs):
 
@@ -145,7 +148,7 @@ class Demo:
         self.bdst.color = '0.85'
         self.router.select_source(event)
 
-    def select_destination(self, event):
+    def select_destination(self, event=None):
         self.bsrc.color = '0.85'
         self.bdst.color = '0.95'
         self.router.select_destination(event)
